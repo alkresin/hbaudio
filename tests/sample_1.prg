@@ -3,10 +3,11 @@
 STATIC pEngine := Nil, pSound := Nil
 
 #define K_ESC    27
+#define K_SPACE  32
 
 FUNCTION Main( cFile )
 
-   LOCAL nRate, nFrames
+   LOCAL nRate, nFrames, nKey, lStopped := .F., lExit := .F.
 
    SET CURSOR OFF
 
@@ -29,21 +30,41 @@ FUNCTION Main( cFile )
    ENDIF
 
    nRate := ma_engine_get_sample_rate( pEngine )
-   nFrames := ma_data_source_get_length_in_pcm_frames( pSound )
+   nFrames := ma_sound_get_length_in_pcm_frames( pSound )
 
    ? nFrames/nRate, "seconds"
    ? "Playing... "
    ma_sound_start( pSound )
 
-   DO WHILE ma_sound_is_playing( pSound )
-      IF Inkey() == K_ESC
-         ma_sound_stop( pSound )
+   DO WHILE !lExit
+      DO WHILE ma_sound_is_playing( pSound )
+         ma_sleep( 100 )
+         IF ( nKey := Inkey() ) == K_ESC
+            ma_sound_stop( pSound )
+            lExit := .T.
+            EXIT
+         ELSEIF nKey == K_SPACE
+            ma_sound_stop( pSound )
+            lStopped := .T.
+         ENDIF
+         PrintProgress( ma_sound_get_cursor_in_pcm_frames( pSound ) * 100 / nFrames )
+      ENDDO
+      IF lStopped
+         DO WHILE .T.
+            ma_sleep( 100 )
+            IF ( nKey := Inkey() ) == K_ESC
+               lExit := .T.
+               EXIT
+            ELSEIF nKey == K_SPACE
+               ma_sound_start( pSound )
+               lStopped := .F.
+               EXIT
+            ENDIF
+         ENDDO
+      ELSE
          EXIT
       ENDIF
-      PrintProgress( ma_data_source_get_cursor_in_pcm_frames( pSound ) * 100 / nFrames )
-      ma_sleep( 100 )
    ENDDO
-
    ma_sound_uninit( pSound )
 
    RETURN Nil
