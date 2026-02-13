@@ -88,6 +88,27 @@ HB_FUNC( MA_SOUND_IS_PLAYING ) {
    hb_retl( ma_sound_is_playing( pSound ) );
 }
 
+HB_FUNC( MA_SOUND_STOP ) {
+
+   ma_sound * pSound = (ma_sound*) hb_parptr( 1 );
+
+   ma_sound_stop( pSound );
+}
+
+HB_FUNC( MA_SOUND_SET_VOLUME ) {
+
+   ma_sound * pSound = (ma_sound*) hb_parptr( 1 );
+
+   ma_sound_set_volume( pSound, hb_parnd( 2 ) );
+}
+
+HB_FUNC( MA_SOUND_GET_VOLUME ) {
+
+   ma_sound * pSound = (ma_sound*) hb_parptr( 1 );
+
+   hb_retnd( ma_sound_get_volume( pSound ) );
+}
+
 HB_FUNC( MA_DATA_SOURCE_GET_LENGTH_IN_PCM_FRAMES ) {
 
    ma_sound * pSound = (ma_sound*) hb_parptr( 1 );
@@ -95,6 +116,15 @@ HB_FUNC( MA_DATA_SOURCE_GET_LENGTH_IN_PCM_FRAMES ) {
 
    ma_data_source_get_length_in_pcm_frames( ma_sound_get_data_source(pSound), &lengthInFrames );
    hb_retnl( (long) lengthInFrames );
+}
+
+HB_FUNC( MA_DATA_SOURCE_GET_CURSOR_IN_PCM_FRAMES ) {
+
+   ma_sound * pSound = (ma_sound*) hb_parptr( 1 );
+   ma_uint64 cursor;
+
+   ma_data_source_get_cursor_in_pcm_frames( ma_sound_get_data_source(pSound), &cursor );
+   hb_retnl( (long) cursor );
 }
 
 HB_FUNC( MA_SLEEP ) {
