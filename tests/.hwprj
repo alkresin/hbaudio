@@ -1,0 +1,9 @@
+
+{win}c_compiler=mingw64
+guilib=
+{unix}libs=pthread m
+
+{unix}def_lflags=-O3 -s
+
+libspath=../lib
+libs=hbaudio

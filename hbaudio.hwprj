@@ -1,0 +1,17 @@
+# Project file to build modbus utility with HwBuilder
+
+makemode=on
+objpath=obj
+
+{win}c_compiler=mingw
+guilib=
+
+{unix}def_lflags=-O3 -s
+
+target=lib
+outpath=lib
+outname=hbaudio
+
+srcpath=source
+
+hb_ma.c

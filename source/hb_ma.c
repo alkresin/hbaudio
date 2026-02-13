@@ -3,7 +3,7 @@
  */
 
 #define MINIAUDIO_IMPLEMENTATION
-#include "../miniaudio.h"
+#include "miniaudio.h"
 
 #include "hbvm.h"
 #include "hbstack.h"
