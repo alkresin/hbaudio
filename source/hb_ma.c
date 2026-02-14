@@ -95,6 +95,15 @@ HB_FUNC( MA_SOUND_STOP ) {
    ma_sound_stop( pSound );
 }
 
+HB_FUNC( MA_SOUND_GET_DATA_FORMAT ) {
+
+   ma_sound * pSound = (ma_sound*) hb_parptr( 1 );
+   ma_uint32 channels;
+
+   ma_sound_get_data_format( pSound, NULL, &channels, NULL, NULL, 0 );
+   hb_retni( channels );
+}
+
 HB_FUNC( MA_SOUND_SET_VOLUME ) {
 
    ma_sound * pSound = (ma_sound*) hb_parptr( 1 );
@@ -132,6 +141,53 @@ HB_FUNC( MA_SOUND_SEEK_TO_PCM_FRAME ) {
    ma_sound * pSound = (ma_sound*) hb_parptr( 1 );
 
    ma_sound_seek_to_pcm_frame( pSound, hb_parnl( 2 ) );
+}
+
+/* ma_sound_read_pcm_frames( pSound, pArrOut, nFrameStart, nFrameCount )
+ */
+HB_FUNC( MA_SOUND_READ_PCM_FRAMES ) {
+
+   ma_sound * pSound = (ma_sound*) hb_parptr( 1 );
+   ma_uint64 framesToRead = hb_parnl( 4 ), i;
+   ma_uint32 channels = 1, j;
+   ma_uint64 nRead;
+   float* pBuffer, * pOut;
+   PHB_ITEM pArr = hb_param( 2, HB_IT_ARRAY ), pSubArr;
+   HB_TYPE type = hb_arrayGetType( pArr, 1 );
+   int bArr = ( type & HB_IT_ARRAY );
+
+   ma_sound_get_data_format( pSound, NULL, &channels, NULL, NULL, 0 );
+   pBuffer = malloc( framesToRead * channels * sizeof(float) );
+
+   if( !HB_ISNIL(3) )
+      ma_sound_seek_to_pcm_frame( pSound, hb_parnl( 3 ) );
+
+   ma_data_source_read_pcm_frames( ma_sound_get_data_source(pSound),
+      pBuffer, framesToRead, &nRead );
+
+   if( nRead ) {
+      //if( channels > 1 )
+      //   nRead /= channels;
+      pOut = pBuffer;
+      for( i = 1; i <= nRead; i += 1 )
+      {
+         if( bArr )
+         {
+            pSubArr = hb_arrayGetItemPtr( pArr, i+1 );
+            for( j = 1; j <= channels; j++, pOut++ )
+               hb_arraySetND( pSubArr, j, (double) *pOut );
+         }
+         else
+         {
+            hb_arraySetND( pArr, i+1, (double) *pOut );
+            pOut ++;
+         }
+      }
+   }
+
+   free( pBuffer );
+   hb_retnl( nRead );
+
 }
 
 HB_FUNC( MA_SLEEP ) {
