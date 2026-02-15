@@ -9,6 +9,31 @@
 #include "hbstack.h"
 #include "hbapiitm.h"
 
+void c_writelog( const char * sFile, const char * sTraceMsg, ... )
+{
+   FILE *hFile;
+
+   if( sFile == NULL )
+   {
+      hFile = fopen( "ac.log", "a" );
+   }
+   else
+   {
+      hFile = fopen( sFile, "a" );
+   }
+
+   if( hFile )
+   {
+      va_list ap;
+
+      va_start( ap, sTraceMsg );
+      vfprintf( hFile, sTraceMsg, ap );
+      va_end( ap );
+
+      fclose( hFile );
+   }
+}
+
 HB_FUNC( MA_ENGINE_INIT ) {
 
    ma_result result;
@@ -95,7 +120,7 @@ HB_FUNC( MA_SOUND_STOP ) {
    ma_sound_stop( pSound );
 }
 
-HB_FUNC( MA_SOUND_GET_DATA_FORMAT ) {
+HB_FUNC( MA_SOUND_GET_CHANNELS ) {
 
    ma_sound * pSound = (ma_sound*) hb_parptr( 1 );
    ma_uint32 channels;
@@ -150,20 +175,23 @@ HB_FUNC( MA_SOUND_READ_PCM_FRAMES ) {
    ma_sound * pSound = (ma_sound*) hb_parptr( 1 );
    ma_uint64 framesToRead = hb_parnl( 4 ), i;
    ma_uint32 channels = 1, j;
-   ma_uint64 nRead;
+   ma_uint64 nRead = 0;
    float* pBuffer, * pOut;
    PHB_ITEM pArr = hb_param( 2, HB_IT_ARRAY ), pSubArr;
    HB_TYPE type = hb_arrayGetType( pArr, 1 );
    int bArr = ( type & HB_IT_ARRAY );
 
+   c_writelog( NULL, "read_frames-0\n" );
    ma_sound_get_data_format( pSound, NULL, &channels, NULL, NULL, 0 );
    pBuffer = malloc( framesToRead * channels * sizeof(float) );
 
    if( !HB_ISNIL(3) )
       ma_sound_seek_to_pcm_frame( pSound, hb_parnl( 3 ) );
 
+   c_writelog( NULL, "read_frames-2\n" );
    ma_data_source_read_pcm_frames( ma_sound_get_data_source(pSound),
       pBuffer, framesToRead, &nRead );
+   c_writelog( NULL, "read_frames-3\n" );
 
    if( nRead ) {
       //if( channels > 1 )
@@ -184,6 +212,8 @@ HB_FUNC( MA_SOUND_READ_PCM_FRAMES ) {
          }
       }
    }
+
+   c_writelog( NULL, "read_frames-4\n" );
 
    free( pBuffer );
    hb_retnl( nRead );
