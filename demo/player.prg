@@ -89,24 +89,32 @@ METHOD New( oPane, oWnd ) CLASS HPlayer
 
       RETURN .T.
    }
+   LOCAL bPaintB1 := {|o,hdc|
+      IF ::lStopped
+         //hwg_Triangle_Filled( hDC, 70, 20, 82, 26, 70, 32, .F., o:cargo["bb"]:handle )
+      ELSE
+         //hwg_Rectangle_Filled( hDC, 110, 10, 150, 40, .F., o:cargo["blg"]:handle )
+      ENDIF
+      RETURN 0
+   }
 
-   ::oPane := oPane
    ::oWnd := oWnd
 
    ::oStyleNormal := HStyle():New( {CLR_BGRAY1,CLR_BGRAY2}, 1 )
    ::oStylePressed := HStyle():New( {CLR_BGRAY1}, 1,, 2, CLR_BLACK )
    ::oStyleOver := HStyle():New( {CLR_BGRAY1}, 1 )
 
-   @ 24, 8 OWNERBUTTON ::oBtnPlay OF oPane SIZE 24, 16 ;
-      HSTYLES ::oStyleNormal, ::oStylePressed, ::oStyleOver ;
-      TEXT ">" COLOR CLR_WHITE ON CLICK { ||.t. }
+   @ 0, 0 BOARD ::oPane SIZE oPane:nWidth, oPane:nHeight OF oPane BACKCOLOR CLR_BGRAY1 ;
+      ON SIZE ANCHOR_LEFTABS+ANCHOR_RIGHTABS
 
-   ::oTrack := HTrack():New( ::oPane,, 60, 8, ::oPane:nWidth-68, 16, ;
-    ,, CLR_WHITE, CLR_BGRAY1, 20,, ;
-       HStyle():New( { 0 }, 1, {8,8,8,8} ) )
-   //::oTrack:bChange := bChange
+   @ 24, 8 DRAWN ::oBtnPlay SIZE 24, 16 COLOR CLR_WHITE BACKCOLOR CLR_BGRAY1
+   ::oBtnPlay:bPaint := bPaintB1
+
+   @ 60, 8 DRAWN TRACK ::oTrack SIZE oPane:nWidth-68, 16 COLOR CLR_WHITE BACKCOLOR CLR_BGRAY1 ;
+      SLIDER SIZE 20 SLIDER HSTYLE HStyle():New( { 0 }, 1, {8,8,8,8} ) AXIS
+
    ::oTrack:Value := 0
-   ::oTrack:oDrawn:bEndDrag := bTrack
+   ::oTrack:bEndDrag := bTrack
 
    IF Empty( ::pEngine )
      ::pEngine := ma_Engine_Init()
@@ -151,6 +159,10 @@ METHOD Play() CLASS HPlayer
 
    LOCAL nPos, nSec := Seconds()
 
+   IF Empty( ::pSound )
+      RETURN Nil
+   ENDIF
+
    ::oBtnPlay:bClick := {||::Stop()}
    ::oBtnPlay:title := 'x'
    ::oBtnPlay:Refresh()
@@ -162,7 +174,8 @@ METHOD Play() CLASS HPlayer
    DO WHILE ::pSound != Nil .AND. ma_sound_is_playing( ::pSound )
       IF Seconds() - nSec > 0.2
          nSec := Seconds()
-         IF ( ( nPos := ma_sound_get_cursor_in_pcm_frames( ::pSound ) ) - ::nPlayPos ) / ::nFramesAll > 0.005
+         IF Abs( ( ( nPos := ma_sound_get_cursor_in_pcm_frames( ::pSound ) ) - ;
+            ::nPlayPos ) / ::nFramesAll ) > 0.005
             ::nPlayPos := nPos
 
             //IF nPlayPos >= nCurrPos + nDataLen*nZoom
