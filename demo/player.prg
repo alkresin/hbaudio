@@ -36,7 +36,8 @@ FUNCTION Main( cFile )
    PREPARE FONT oFont NAME "Georgia" WIDTH 0 HEIGHT - 17 ITALIC
 
    INIT WINDOW oMain MAIN TITLE "" AT 200, 0 SIZE PL_WIDTH, HEA_HEIGHT+PL_HEIGHT  ;
-      BACKCOLOR CLR_GBROWN FONT oFont STYLE WND_NOTITLE + WND_NOSIZEBOX
+      BACKCOLOR CLR_GBROWN FONT oFont STYLE WND_NOTITLE + WND_NOSIZEBOX ;
+      ON EXIT {||oPlayer:KillSound()}
 
    ADD HEADER PANEL oPaneHea HEIGHT HEA_HEIGHT TEXTCOLOR CLR_WHITE BACKCOLOR CLR_DBROWN ;
       FONT oFont TEXT "HbPlayer" COORS 20 BTN_CLOSE BTN_MINIMIZE
@@ -50,6 +51,11 @@ FUNCTION Main( cFile )
 
    ACTIVATE WINDOW oMain ON ACTIVATE {|| Iif(!Empty(cFile), oPlayer:PlayFile(cFile), .T.) }
 
+   IF !Empty( HPlayer():pEngine )
+      ma_Engine_UnInit( HPlayer():pEngine )
+      HPlayer():pEngine := Nil
+   ENDIF
+
    RETURN Nil
 
 CLASS HPlayer
@@ -57,7 +63,7 @@ CLASS HPlayer
    CLASS VAR pEngine SHARED
 
    DATA pSound, cFile
-   DATA oPane, oWnd, oBtnPlay
+   DATA oPane, oWnd, oBtnPlay, oTrack
    DATA oStyleNormal, oStylePressed, oStyleOver
    DATA lStopped  INIT .T.
    DATA nPlayPos
@@ -74,6 +80,14 @@ ENDCLASS
 
 METHOD New( oPane, oWnd ) CLASS HPlayer
 
+   LOCAL bTrack := {|o|
+      IF ::pSound != Nil
+         ma_sound_seek_to_pcm_frame( ::pSound, Int( o:Value*::nFramesAll ) )
+      ENDIF
+
+      RETURN .T.
+   }
+
    ::oPane := oPane
    ::oWnd := oWnd
 
@@ -84,6 +98,13 @@ METHOD New( oPane, oWnd ) CLASS HPlayer
    @ 24, 8 OWNERBUTTON ::oBtnPlay OF oPane SIZE 24, 24 ;
       HSTYLES ::oStyleNormal, ::oStylePressed, ::oStyleOver ;
       TEXT ">" COLOR CLR_WHITE ON CLICK { ||.t. }
+
+   ::oTrack := HTrack():New( ::oPane,, 60, 2, ::oPane:nWidth-68, 28, ;
+    ,, CLR_WHITE, CLR_BGRAY1, 16,, ;
+       HStyle():New( { 0 }, 1, {8,8,8,8} ) )
+   //::oTrack:bChange := bChange
+   ::oTrack:Value := 0
+   ::oTrack:oDrawn:bEndDrag := bTrack
 
    IF Empty( ::pEngine )
      ::pEngine := ma_Engine_Init()
@@ -126,35 +147,50 @@ METHOD PlayFile( cFile ) CLASS HPlayer
 
 METHOD Play() CLASS HPlayer
 
-   LOCAL nPos
+   LOCAL nPos, nSec := Seconds()
+
+   ::oBtnPlay:bClick := {||::Stop()}
+   ::oBtnPlay:title := 'x'
+   ::oBtnPlay:Refresh()
 
    ma_sound_start( ::pSound )
+   ::lStopped := .F.
    ::nPlayPos := 0
 
    DO WHILE ::pSound != Nil .AND. ma_sound_is_playing( ::pSound )
-      IF ( nPos := ma_sound_get_cursor_in_pcm_frames( ::pSound ) ) != ::nPlayPos
-         ::nPlayPos := nPos
-         /*
-         IF nPlayPos >= nCurrPos + nDataLen*nZoom
-            GraphScroll( 1 )
-         ELSE
-            HWindow():GetMain():oPaneGHea:Refresh()
+      IF Seconds() - nSec > 0.2
+         nSec := Seconds()
+         IF ( nPos := ma_sound_get_cursor_in_pcm_frames( ::pSound ) ) != ::nPlayPos
+            ::nPlayPos := nPos
+            /*
+            IF nPlayPos >= nCurrPos + nDataLen*nZoom
+               GraphScroll( 1 )
+            ELSE
+               HWindow():GetMain():oPaneGHea:Refresh()
+            ENDIF
+            */
          ENDIF
-         */
       ENDIF
       hwg_ProcessMessage()
       hb_gcStep()
-      hwg_Sleep( 20 )
+      hwg_Sleep( 1 )
    ENDDO
 
-   ::lStoped := .T.
-   ma_sound_stop( ::pSound )
-   ::nPlayPos := 0
+   IF !::lStopped
+      ::Stop()
+      ::nPlayPos := 0
+   ENDIF
    //GraphScroll( 0 )
 
    RETURN Nil
 
 METHOD Stop() CLASS HPlayer
+
+   ma_sound_stop( ::pSound )
+   ::lStopped := .T.
+   ::oBtnPlay:bClick := {||::Play()}
+   ::oBtnPlay:title := '>'
+   ::oBtnPlay:Refresh()
 
    RETURN Nil
 
@@ -168,11 +204,10 @@ METHOD KillSound() CLASS HPlayer
       ::pSound := Nil
    ENDIF
 
-   RETURN Nil
+   RETURN .T.
 
 METHOD End() CLASS HPlayer
 
-   hwg_writelog( "End" )
    ::KillSound()
 
    RETURN .T.
