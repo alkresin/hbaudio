@@ -82,7 +82,9 @@ METHOD New( oPane, oWnd ) CLASS HPlayer
 
    LOCAL bTrack := {|o|
       IF ::pSound != Nil
+         //hwg_Writelog( "Set "+str(o:Value) )
          ma_sound_seek_to_pcm_frame( ::pSound, Int( o:Value*::nFramesAll ) )
+         //hwg_Writelog( "Res: "+str(ma_sound_get_cursor_in_pcm_frames( ::pSound )) )
       ENDIF
 
       RETURN .T.
@@ -95,12 +97,12 @@ METHOD New( oPane, oWnd ) CLASS HPlayer
    ::oStylePressed := HStyle():New( {CLR_BGRAY1}, 1,, 2, CLR_BLACK )
    ::oStyleOver := HStyle():New( {CLR_BGRAY1}, 1 )
 
-   @ 24, 8 OWNERBUTTON ::oBtnPlay OF oPane SIZE 24, 24 ;
+   @ 24, 8 OWNERBUTTON ::oBtnPlay OF oPane SIZE 24, 16 ;
       HSTYLES ::oStyleNormal, ::oStylePressed, ::oStyleOver ;
       TEXT ">" COLOR CLR_WHITE ON CLICK { ||.t. }
 
-   ::oTrack := HTrack():New( ::oPane,, 60, 2, ::oPane:nWidth-68, 28, ;
-    ,, CLR_WHITE, CLR_BGRAY1, 16,, ;
+   ::oTrack := HTrack():New( ::oPane,, 60, 8, ::oPane:nWidth-68, 16, ;
+    ,, CLR_WHITE, CLR_BGRAY1, 20,, ;
        HStyle():New( { 0 }, 1, {8,8,8,8} ) )
    //::oTrack:bChange := bChange
    ::oTrack:Value := 0
@@ -160,15 +162,18 @@ METHOD Play() CLASS HPlayer
    DO WHILE ::pSound != Nil .AND. ma_sound_is_playing( ::pSound )
       IF Seconds() - nSec > 0.2
          nSec := Seconds()
-         IF ( nPos := ma_sound_get_cursor_in_pcm_frames( ::pSound ) ) != ::nPlayPos
+         IF ( ( nPos := ma_sound_get_cursor_in_pcm_frames( ::pSound ) ) - ::nPlayPos ) / ::nFramesAll > 0.005
             ::nPlayPos := nPos
-            /*
-            IF nPlayPos >= nCurrPos + nDataLen*nZoom
-               GraphScroll( 1 )
-            ELSE
-               HWindow():GetMain():oPaneGHea:Refresh()
-            ENDIF
-            */
+
+            //IF nPlayPos >= nCurrPos + nDataLen*nZoom
+               ::oTrack:Value := ::nPlayPos / ::nFramesAll
+               //hwg_Writelog( "- "+str(::oTrack:Value)+" "+str(::nPlayPos) )
+               ::oTrack:Refresh()
+               //GraphScroll( 1 )
+            //ELSE
+               //HWindow():GetMain():oPaneGHea:Refresh()
+            //ENDIF
+
          ENDIF
       ENDIF
       hwg_ProcessMessage()
