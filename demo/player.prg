@@ -29,9 +29,7 @@ STATIC oPlayer
 
 FUNCTION Main( cFile )
 
-   LOCAL oMain, oPaneHea, oPaneTop, oFont, oStyleNormal
-
-   oStyleNormal := HStyle():New( {CLR_BGRAY1,CLR_BGRAY2}, 1 )
+   LOCAL oMain, oPaneHea, oPaneTop, oFont
 
    PREPARE FONT oFont NAME "Georgia" WIDTH 0 HEIGHT - 17 ITALIC
 
@@ -44,7 +42,7 @@ FUNCTION Main( cFile )
 
    oPaneHea:SetSysbtnColor( CLR_WHITE, CLR_BGRAY1 )
 
-   @ 0, HEA_HEIGHT PANEL oPaneTop SIZE oMain:nWidth, PL_HEIGHT HSTYLE oStyleNormal ;
+   @ 0, HEA_HEIGHT PANEL oPaneTop SIZE oMain:nWidth, PL_HEIGHT ;
       ON SIZE ANCHOR_LEFTABS + ANCHOR_RIGHTABS
 
    oPlayer := HPlayer():New( oPaneTop, oPaneHea )
@@ -63,7 +61,8 @@ CLASS HPlayer
    CLASS VAR pEngine SHARED
 
    DATA pSound, cFile
-   DATA oPane, oWnd, oBtnPlay, oTrack
+   DATA oBoard, oWnd, oBtnPlay, oTrack
+   DATA oBrushBtn
    DATA oStyleNormal, oStylePressed, oStyleOver
    DATA lStopped  INIT .T.
    DATA nPlayPos
@@ -90,24 +89,26 @@ METHOD New( oPane, oWnd ) CLASS HPlayer
       RETURN .T.
    }
    LOCAL bPaintB1 := {|o,hdc|
+      LOCAL nl := o:nLeft, nt := o:nTop
       IF ::lStopped
-         //hwg_Triangle_Filled( hDC, 70, 20, 82, 26, 70, 32, .F., o:cargo["bb"]:handle )
+         hwg_Triangle_Filled( hDC, nl+4, nt+4, nl+o:nWidth-4, nt+4+Int((o:nHeight-8)/2), nl+4, nt+o:nHeight-4, .F., oPlayer:oBrushBtn:handle )
       ELSE
-         //hwg_Rectangle_Filled( hDC, 110, 10, 150, 40, .F., o:cargo["blg"]:handle )
+         hwg_Rectangle_Filled( hDC, nl+4, nt+4, nl+o:nWidth-4, nt+o:nHeight-4, .F., oPlayer:oBrushBtn:handle )
       ENDIF
       RETURN 0
    }
 
    ::oWnd := oWnd
 
+   ::oBrushBtn := HBrush():Add( CLR_BLACK )
    ::oStyleNormal := HStyle():New( {CLR_BGRAY1,CLR_BGRAY2}, 1 )
    ::oStylePressed := HStyle():New( {CLR_BGRAY1}, 1,, 2, CLR_BLACK )
    ::oStyleOver := HStyle():New( {CLR_BGRAY1}, 1 )
 
-   @ 0, 0 BOARD ::oPane SIZE oPane:nWidth, oPane:nHeight OF oPane BACKCOLOR CLR_BGRAY1 ;
+   @ 0, 0 BOARD ::oBoard SIZE oPane:nWidth, oPane:nHeight OF oPane BACKCOLOR CLR_BGRAY1 ;
       ON SIZE ANCHOR_LEFTABS+ANCHOR_RIGHTABS
 
-   @ 24, 8 DRAWN ::oBtnPlay SIZE 24, 16 COLOR CLR_WHITE BACKCOLOR CLR_BGRAY1
+   @ 24, 6 DRAWN ::oBtnPlay SIZE 20, 20 COLOR CLR_WHITE BACKCOLOR CLR_BGRAY1
    ::oBtnPlay:bPaint := bPaintB1
 
    @ 60, 8 DRAWN TRACK ::oTrack SIZE oPane:nWidth-68, 16 COLOR CLR_WHITE BACKCOLOR CLR_BGRAY1 ;
@@ -150,7 +151,7 @@ METHOD PlayFile( cFile ) CLASS HPlayer
       ::nRate := ma_engine_get_sample_rate( ::pEngine )
       ::nFramesAll := ma_sound_get_length_in_pcm_frames( ::pSound )
 
-      SET TIMER oTimer OF ::oPane VALUE 10 ACTION {||::Play()} ONCE
+      SET TIMER oTimer OF ::oBoard VALUE 10 ACTION {||::Play()} ONCE
    ENDIF
 
    RETURN Nil
