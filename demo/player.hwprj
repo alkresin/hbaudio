@@ -6,5 +6,6 @@ libspath=../lib
 libs=hbaudio
 
 player.prg
+hplayer.prg
 common.prg
 hmessage.prg
