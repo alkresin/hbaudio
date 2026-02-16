@@ -69,6 +69,20 @@ HB_FUNC( MA_ENGINE_UNINIT ) {
    ma_engine_uninit( pEngine );
 }
 
+HB_FUNC( MA_ENGINE_SET_VOLUME ) {
+
+   ma_engine * pEngine = (ma_engine*) hb_parptr( 1 );
+
+   ma_engine_set_volume( pEngine, hb_parnd( 2 ) );
+}
+
+HB_FUNC( MA_ENGINE_GET_VOLUME ) {
+
+   ma_engine * pEngine = (ma_engine*) hb_parptr( 1 );
+
+   hb_retnd( ma_engine_get_volume( pEngine ) );
+}
+
 HB_FUNC( MA_SOUND_INIT ) {
 
    ma_engine * pEngine = (ma_engine*) hb_parptr( 1 );
