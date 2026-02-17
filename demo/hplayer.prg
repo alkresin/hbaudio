@@ -4,12 +4,12 @@
 #include "hbclass.ch"
 #include "hwgui.ch"
 
-#define CLR_BLACK   0
-#define CLR_WHITE   0xffffff
-#define CLR_BGRAY1  0x7b7680
-#define CLR_BGRAY2  0x5b5760
-#define CLR_DBROWN  0x2F343F
-#define CLR_GBROWN  0x3C3940
+#define CLR_BOARD   1          // oStyleNormal, Board, buttons, tracker
+#define CLR_STYLE   2          // oStylePressed, oStyleOver
+#define CLR_HEAD    3          // Dialog header pane
+#define CLR_DLG     4          // Dialog back color
+#define CLR_BTN1    5
+#define CLR_BTN2    6
 
 CLASS HPlayer
 
@@ -17,6 +17,7 @@ CLASS HPlayer
 
    DATA pSound, cFile
    DATA oBoard, oWnd, oBtnAdd, oBtnPlay, oBtnVol, oSayTime, oTrack
+   DATA aColors                //
    DATA oBrushBtn1, oBrushBtn2
    DATA oStyleNormal, oStylePressed, oStyleOver
    DATA lStopped  INIT .T.
@@ -24,7 +25,7 @@ CLASS HPlayer
    DATA nChannels, nRate, nFramesAll
    DATA cLastPath
 
-   METHOD New( oPane, oWnd )
+   METHOD New( oPane, oWnd, aColors )
    METHOD PlayFile( cFile )
    METHOD Play()
    METHOD Stop()
@@ -35,7 +36,7 @@ CLASS HPlayer
 
 ENDCLASS
 
-METHOD New( oPane, oWnd ) CLASS HPlayer
+METHOD New( oPane, oWnd, aColors ) CLASS HPlayer
 
    LOCAL bTrack := {|o|
       IF ::pSound != Nil
@@ -68,32 +69,33 @@ METHOD New( oPane, oWnd ) CLASS HPlayer
 
    ::cLastPath := hb_DirBase()
    ::oWnd := oWnd
+   ::aColors := aColors
 
-   ::oBrushBtn1 := HBrush():Add( CLR_BLACK )
-   ::oBrushBtn2 := HBrush():Add( CLR_WHITE )
-   ::oStyleNormal := HStyle():New( {CLR_BGRAY1}, 1 )
-   ::oStylePressed := HStyle():New( {CLR_BGRAY2}, 1,, 2, CLR_BLACK )
-   ::oStyleOver := HStyle():New( {CLR_BGRAY2}, 1 )
+   ::oBrushBtn1 := HBrush():Add( ::aColors[CLR_BTN1] )
+   ::oBrushBtn2 := HBrush():Add( ::aColors[CLR_BTN2] )
+   ::oStyleNormal := HStyle():New( {::aColors[CLR_BOARD]}, 1 )
+   ::oStylePressed := HStyle():New( {::aColors[CLR_STYLE]}, 1,, 2, ::aColors[CLR_BTN1] )
+   ::oStyleOver := HStyle():New( {::aColors[CLR_STYLE]}, 1 )
 
-   @ 0, 0 BOARD ::oBoard SIZE oPane:nWidth, oPane:nHeight OF oPane BACKCOLOR CLR_BGRAY1 ;
+   @ 0, 0 BOARD ::oBoard SIZE oPane:nWidth, oPane:nHeight OF oPane BACKCOLOR ::aColors[CLR_BOARD] ;
       ON SIZE ANCHOR_LEFTABS+ANCHOR_RIGHTABS
 
-   @ 2, 2 DRAWN ::oBtnAdd SIZE 20, 28 COLOR CLR_WHITE ;
+   @ 2, 2 DRAWN ::oBtnAdd SIZE 20, 28 ;
       HSTYLES { ::oStyleNormal, ::oStyleOver, ::oStyleNormal }
    ::oBtnAdd:cTooltip := "Open file"
    ::oBtnAdd:bPaint := bPaintB2
    ::oBtnAdd:bClick := {|| ::PlayFile("") }
 
-   @ 30, 2 DRAWN ::oBtnPlay SIZE 20, 28 COLOR CLR_WHITE ;
+   @ 30, 2 DRAWN ::oBtnPlay SIZE 20, 28 ;
       HSTYLES { ::oStyleNormal, ::oStyleOver, ::oStyleNormal }
    ::oBtnPlay:bPaint := bPaintB1
 
-   @ 60, 8 DRAWN TRACK ::oTrack SIZE ::oBoard:nWidth-220, 16 COLOR CLR_WHITE BACKCOLOR CLR_BGRAY1 ;
+   @ 60, 8 DRAWN TRACK ::oTrack SIZE ::oBoard:nWidth-220, 16 COLOR ::aColors[CLR_BTN2] BACKCOLOR ::aColors[CLR_BOARD] ;
       SLIDER SIZE 20 SLIDER HSTYLE HStyle():New( { 0 }, 1, {8,8,8,8} ) AXIS
 
-   @ ::oBoard:nWidth-150, 2 DRAWN ::oSayTime SIZE 120, 28 COLOR CLR_WHITE BACKCOLOR CLR_BGRAY1
+   @ ::oBoard:nWidth-150, 2 DRAWN ::oSayTime SIZE 120, 28 COLOR ::aColors[CLR_BTN2] BACKCOLOR ::aColors[CLR_BOARD]
 
-   @ ::oBoard:nWidth-28, 2 DRAWN ::oBtnVol SIZE 20, 28 COLOR CLR_BLACK TEXT 'V';
+   @ ::oBoard:nWidth-28, 2 DRAWN ::oBtnVol SIZE 20, 28 COLOR ::aColors[CLR_BTN1] TEXT 'V';
       HSTYLES { ::oStyleNormal, ::oStyleOver, ::oStyleNormal }
    ::oBtnVol:cTooltip := "Volume"
    ::oBtnVol:bClick := {|| ::Volume() }
@@ -224,14 +226,14 @@ METHOD Volume() CLASS HPlayer
       RETURN .T.
    }
 
-   INIT DIALOG oDlg TITLE "" BACKCOLOR CLR_GBROWN FONT oFont ;
+   INIT DIALOG oDlg TITLE "" BACKCOLOR ::aColors[CLR_DLG] FONT oFont ;
       AT 300, 58 SIZE 260, 120 STYLE WND_NOTITLE
 
-   ADD HEADER PANEL oPaneHea HEIGHT 32 TEXTCOLOR CLR_WHITE BACKCOLOR CLR_DBROWN ;
+   ADD HEADER PANEL oPaneHea HEIGHT 32 TEXTCOLOR ::aColors[CLR_BTN2] BACKCOLOR ::aColors[CLR_HEAD] ;
       FONT oFont TEXT "Volume" COORS 20 BTN_CLOSE
-   oPaneHea:SetSysbtnColor( CLR_WHITE, CLR_BGRAY1 )
+   oPaneHea:SetSysbtnColor( ::aColors[CLR_BTN2], ::aColors[CLR_BOARD] )
 
-   @ 20, 40 TRACK oTrack SIZE 220, 20 COLOR CLR_WHITE BACKCOLOR CLR_BGRAY1 ;
+   @ 20, 40 TRACK oTrack SIZE 220, 20 COLOR ::aColors[CLR_BTN2] BACKCOLOR ::aColors[CLR_BOARD] ;
       SLIDER SIZE 20 SLIDER HSTYLE HStyle():New( { 0 }, 1, {8,8,8,8} ) AXIS
    oTrack:bChange := bVolChange
    oTrack:Value := nVol/2

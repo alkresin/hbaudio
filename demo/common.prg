@@ -204,13 +204,3 @@ FUNCTION _IniRead( cFileName )
    NEXT
 
    RETURN hIni
-
-FUNCTION GetInBrackets( s, cb1, cb2 )
-
-   LOCAL nPos1, nPos2
-
-   IF (nPos1 := At( cb1, s )) > 0 .AND. (nPos2 := hb_At( cb2, s, nPos1 )) > 0
-      RETURN Substr( s, nPos1+1, nPos2-nPos1-1 )
-   ENDIF
-
-   RETURN ""

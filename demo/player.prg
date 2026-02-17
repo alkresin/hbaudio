@@ -7,9 +7,9 @@
 
 #define CLR_BLACK   0
 #define CLR_WHITE   0xffffff
-#define CLR_BGRAY1  0x7b7680
+#define CLR_BGRAY1  0x7b7680   // Sys buttons
 #define CLR_BGRAY2  0x5b5760
-#define CLR_DBROWN  0x2F343F
+#define CLR_DBROWN  0x2F343F   // Header pane
 #define CLR_GBROWN  0x3C3940
 
 #define HEA_HEIGHT         28
@@ -17,6 +17,8 @@
 #define PL_HEIGHT          32
 
 STATIC oPlayer
+STATIC arrColors := { {CLR_BGRAY1,CLR_BGRAY2,CLR_DBROWN,CLR_GBROWN,CLR_BLACK,CLR_WHITE} }
+STATIC nTheme := 1
 
 FUNCTION Main( cFile )
 
@@ -26,19 +28,19 @@ FUNCTION Main( cFile )
 
    PREPARE FONT oFont NAME "Georgia" WIDTH 0 HEIGHT - 15 ITALIC
 
-   INIT WINDOW oMain MAIN TITLE "" AT 200, 0 SIZE PL_WIDTH, HEA_HEIGHT+PL_HEIGHT  ;
-      BACKCOLOR CLR_GBROWN FONT oFont STYLE WND_NOTITLE + WND_NOSIZEBOX ;
+   INIT WINDOW oMain MAIN TITLE "" AT 200, 0 SIZE PL_WIDTH, HEA_HEIGHT+PL_HEIGHT ;
+      FONT oFont STYLE WND_NOTITLE + WND_NOSIZEBOX ;
       ON EXIT {||oPlayer:KillSound()}
 
-   ADD HEADER PANEL oPaneHea HEIGHT HEA_HEIGHT TEXTCOLOR CLR_WHITE BACKCOLOR CLR_DBROWN ;
+   ADD HEADER PANEL oPaneHea HEIGHT HEA_HEIGHT TEXTCOLOR arrColors[nTheme,6] BACKCOLOR arrColors[nTheme,3] ;
       FONT oFont TEXT "HbPlayer" COORS 20 BTN_CLOSE BTN_MINIMIZE
 
-   oPaneHea:SetSysbtnColor( CLR_WHITE, CLR_BGRAY1 )
+   oPaneHea:SetSysbtnColor( arrColors[nTheme,6], arrColors[nTheme,1] )
 
    @ 0, HEA_HEIGHT PANEL oPaneTop SIZE oMain:nWidth, PL_HEIGHT ;
       ON SIZE ANCHOR_LEFTABS + ANCHOR_RIGHTABS
 
-   oPlayer := HPlayer():New( oPaneTop, oPaneHea )
+   oPlayer := HPlayer():New( oPaneTop, oPaneHea, arrColors[1] )
 
    SET KEY 0, VK_SPACE TO Iif( oPlayer:lStopped, oPlayer:Play(), oPlayer:Stop() )
 
