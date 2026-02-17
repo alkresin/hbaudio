@@ -6,4 +6,5 @@
 *.o
 *.log
 *.out
+*.ini
 temp/*

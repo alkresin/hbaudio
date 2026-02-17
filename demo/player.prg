@@ -18,29 +18,31 @@
 
 STATIC oPlayer
 STATIC arrColors := { {CLR_BGRAY1,CLR_BGRAY2,CLR_DBROWN,CLR_GBROWN,CLR_BLACK,CLR_WHITE} }
-STATIC nTheme := 1
+STATIC nTheme := 1, cLastPath, oFontMain, nVolume := 0.5
 
 FUNCTION Main( cFile )
 
-   LOCAL oMain, oPaneHea, oPaneTop, oFont
+   LOCAL oMain, oPaneHea, oPaneTop
 
    ReadIni()
 
-   PREPARE FONT oFont NAME "Georgia" WIDTH 0 HEIGHT - 15 ITALIC
+   IF Empty( oFontMain )
+      PREPARE FONT oFontMain NAME "Georgia" WIDTH 0 HEIGHT - 15 ITALIC
+   ENDIF
 
    INIT WINDOW oMain MAIN TITLE "" AT 200, 0 SIZE PL_WIDTH, HEA_HEIGHT+PL_HEIGHT ;
-      FONT oFont STYLE WND_NOTITLE + WND_NOSIZEBOX ;
+      FONT oFontMain STYLE WND_NOTITLE + WND_NOSIZEBOX ;
       ON EXIT {||oPlayer:KillSound()}
 
    ADD HEADER PANEL oPaneHea HEIGHT HEA_HEIGHT TEXTCOLOR arrColors[nTheme,6] BACKCOLOR arrColors[nTheme,3] ;
-      FONT oFont TEXT "HbPlayer" COORS 20 BTN_CLOSE BTN_MINIMIZE
+      FONT oFontMain TEXT "HbPlayer" COORS 20 BTN_CLOSE BTN_MINIMIZE
 
    oPaneHea:SetSysbtnColor( arrColors[nTheme,6], arrColors[nTheme,1] )
 
    @ 0, HEA_HEIGHT PANEL oPaneTop SIZE oMain:nWidth, PL_HEIGHT ;
       ON SIZE ANCHOR_LEFTABS + ANCHOR_RIGHTABS
 
-   oPlayer := HPlayer():New( oPaneTop, oPaneHea, arrColors[1] )
+   oPlayer := HPlayer():New( oPaneTop, oPaneHea, arrColors[1], cLastPath, nVolume )
 
    SET KEY 0, VK_SPACE TO Iif( oPlayer:lStopped, oPlayer:Play(), oPlayer:Stop() )
 
@@ -55,12 +57,24 @@ FUNCTION Main( cFile )
 
 STATIC FUNCTION ReadIni()
 
-   LOCAL hIni := _IniRead( hb_Dirbase() + "player.ini" ), aIni, nSect
+   LOCAL hIni := _IniRead( hb_Dirbase() + "player.ini" ), aIni, nSect, aSect, cTemp
 
    IF !Empty( hIni )
       aIni := hb_hKeys( hIni )
       FOR nSect := 1 TO Len( aIni )
-         IF Upper(aIni[nSect]) == "OPTIONS"
+         IF Upper(aIni[nSect]) == "MAIN"
+            IF !Empty( aSect := hIni[ aIni[nSect] ] )
+               hb_hCaseMatch( aSect, .F. )
+               IF hb_hHaskey( aSect, cTemp := "path" ) .AND. !Empty( cTemp := aSect[ cTemp ] )
+                  cLastPath := cTemp
+               ENDIF
+               IF hb_hHaskey( aSect, cTemp := "fontmain" ) .AND. !Empty( cTemp := aSect[ cTemp ] )
+                  oFontMain := HFont():LoadFromStr( cTemp )
+               ENDIF
+               IF hb_hHaskey( aSect, cTemp := "volume" ) .AND. !Empty( cTemp := aSect[ cTemp ] )
+                  nVolume := Val( cTemp )
+               ENDIF
+            ENDIF
          ENDIF
       NEXT
    ENDIF

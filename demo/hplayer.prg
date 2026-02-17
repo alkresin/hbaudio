@@ -36,7 +36,7 @@ CLASS HPlayer
 
 ENDCLASS
 
-METHOD New( oPane, oWnd, aColors ) CLASS HPlayer
+METHOD New( oPane, oWnd, aColors, cLastPath, nVolume ) CLASS HPlayer
 
    LOCAL bTrack := {|o|
       IF ::pSound != Nil
@@ -67,7 +67,7 @@ METHOD New( oPane, oWnd, aColors ) CLASS HPlayer
       RETURN 0
    }
 
-   ::cLastPath := hb_DirBase()
+   ::cLastPath := Iif( Empty( cLastPath ), hb_DirBase(), cLastPath )
    ::oWnd := oWnd
    ::aColors := aColors
 
@@ -97,7 +97,7 @@ METHOD New( oPane, oWnd, aColors ) CLASS HPlayer
 
    @ ::oBoard:nWidth-28, 2 DRAWN ::oBtnVol SIZE 20, 28 COLOR ::aColors[CLR_BTN1] TEXT 'V';
       HSTYLES { ::oStyleNormal, ::oStyleOver, ::oStyleNormal }
-   ::oBtnVol:cTooltip := "Volume"
+   //::oBtnVol:cTooltip := "Volume"
    ::oBtnVol:bClick := {|| ::Volume() }
 
    ::oTrack:Value := 0
@@ -105,7 +105,7 @@ METHOD New( oPane, oWnd, aColors ) CLASS HPlayer
 
    IF Empty( ::pEngine )
      ::pEngine := ma_Engine_Init()
-     ma_engine_set_volume( ::pEngine, 0.5 )
+     ma_engine_set_volume( ::pEngine, Iif( Empty( nVolume ), 0.5, nVolume ) )
    ENDIF
 
    RETURN Self
