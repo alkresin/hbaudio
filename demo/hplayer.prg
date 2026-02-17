@@ -1,8 +1,16 @@
 /*
-  */
+ * HPlayer class - audio player implementation, based on Miniaudio and HwGUI
+ */
 
 #include "hbclass.ch"
 #include "hwgui.ch"
+
+#define CLR_BLACK   0
+#define CLR_WHITE   0xffffff
+#define CLR_BGRAY1  0x7b7680   // Sys buttons
+#define CLR_BGRAY2  0x5b5760
+#define CLR_DBROWN  0x2F343F   // Header pane
+#define CLR_GBROWN  0x3C3940
 
 #define CLR_BOARD   1          // oStyleNormal, Board, buttons, tracker
 #define CLR_STYLE   2          // oStylePressed, oStyleOver
@@ -10,6 +18,8 @@
 #define CLR_DLG     4          // Dialog back color
 #define CLR_BTN1    5
 #define CLR_BTN2    6
+
+#define HEA_HEIGHT         28
 
 CLASS HPlayer
 
@@ -30,6 +40,7 @@ CLASS HPlayer
    METHOD Play()
    METHOD Stop()
    METHOD Volume()
+   METHOD Message( cText, cTitle )
    METHOD ShowTime( n )
    METHOD KillSound()
    METHOD End()
@@ -69,7 +80,9 @@ METHOD New( oPane, oWnd, aColors, cLastPath, nVolume ) CLASS HPlayer
 
    ::cLastPath := Iif( Empty( cLastPath ), hb_DirBase(), cLastPath )
    ::oWnd := oWnd
-   ::aColors := aColors
+
+   ::aColors := Iif( Empty(aColors), ;
+      {CLR_BGRAY1,CLR_BGRAY2,CLR_DBROWN,CLR_GBROWN,CLR_BLACK,CLR_WHITE}, aColors )
 
    ::oBrushBtn1 := HBrush():Add( ::aColors[CLR_BTN1] )
    ::oBrushBtn2 := HBrush():Add( ::aColors[CLR_BTN2] )
@@ -112,7 +125,7 @@ METHOD New( oPane, oWnd, aColors, cLastPath, nVolume ) CLASS HPlayer
 
 METHOD PlayFile( cFile ) CLASS HPlayer
 
-   LOCAL oTimer
+   LOCAL oTimer, ohf
 
    ::cFile := Nil
 
@@ -121,11 +134,16 @@ METHOD PlayFile( cFile ) CLASS HPlayer
          ::cFile := cFile
       ENDIF
    ELSEIF cFile == ""
+
 #ifdef __PLATFORM__UNIX
       ::cFile := hwg_SelectfileEx( , ::cLastPath, { { "All files", "*.*" } } )
 #else
       ::cFile := hwg_Selectfile( { "All files" }, { "*.*" }, ::cLastPath  )
 #endif
+/*
+      ohf := HFileSelect():New()
+      ohf:Show()
+*/
    ENDIF
 
    IF !Empty( ::cFile )
@@ -134,7 +152,7 @@ METHOD PlayFile( cFile ) CLASS HPlayer
          ::oWnd:SetText( hb_fnameName( ::cFile ) )
       ENDIF
       IF Empty( ::pSound := ma_Sound_Init( ::pEngine, ::cFile ) )
-         hwg_MsgStop( "ma_Sound_Init() failed" )
+         ::Message( "ma_Sound_Init() failed", "Error" )
          ::cFile := Nil
          RETURN Nil
       ENDIF
@@ -229,7 +247,7 @@ METHOD Volume() CLASS HPlayer
    INIT DIALOG oDlg TITLE "" BACKCOLOR ::aColors[CLR_DLG] FONT oFont ;
       AT 300, 58 SIZE 260, 120 STYLE WND_NOTITLE
 
-   ADD HEADER PANEL oPaneHea HEIGHT 32 TEXTCOLOR ::aColors[CLR_BTN2] BACKCOLOR ::aColors[CLR_HEAD] ;
+   ADD HEADER PANEL oPaneHea HEIGHT HEA_HEIGHT TEXTCOLOR ::aColors[CLR_BTN2] BACKCOLOR ::aColors[CLR_HEAD] ;
       FONT oFont TEXT "Volume" COORS 20 BTN_CLOSE
    oPaneHea:SetSysbtnColor( ::aColors[CLR_BTN2], ::aColors[CLR_BOARD] )
 
@@ -238,7 +256,7 @@ METHOD Volume() CLASS HPlayer
    oTrack:bChange := bVolChange
    oTrack:Value := nVol/2
 
-   @ 80,80 OWNERBUTTON SIZE 100,30 TEXT "Close" COLOR 0xffffff ;
+   @ 80,80 OWNERBUTTON SIZE 100,30 TEXT "Close" COLOR ::aColors[CLR_BTN1] ;
          HSTYLES ::oStyleNormal, ::oStylePressed, ::oStyleOver ;
          ON SIZE ANCHOR_LEFTABS + ANCHOR_RIGHTABS + ANCHOR_BOTTOMABS ;
          ON CLICK {||hwg_EndDialog()}
@@ -247,6 +265,55 @@ METHOD Volume() CLASS HPlayer
 
    RETURN Nil
 
+METHOD Message( cText, cTitle ) CLASS HPlayer
+
+   LOCAL oDlg, oPanelH, arr, i, nLenMax := 0, nLineHeight, nBtnLenMax := 60, nDlgWidth, x1, y1 := 20
+   LOCAL oFont := HWindow():Getmain():oFont, nAlign
+   LOCAL hDC, hFont
+
+   IF Empty( cTitle); cTitle := ""; ENDIF
+   IF Empty( cText); cText := ""; ENDIF
+
+   arr := hb_aTokens( cText, ';' )
+
+   hDC := hwg_Getdc( HWindow():GetMain():handle )
+   hFont := hwg_Selectobject( hDC, oFont:handle )
+   FOR i := 1 TO Len( arr )
+      nLenMax := Max( nLenMax, hwg_GetTextSize( hDC, arr[i] )[1] )
+   NEXT
+   nLineHeight := hwg_GetTextSize( hDC, arr[1] )[2] + 4
+#ifndef __PLATFORM__UNIX
+   hwg_Selectobject( hDC, hFont )
+#endif
+   hwg_ReleaseDC( HWindow():GetMain():handle, hDC )
+   nLenMax += 32
+   nBtnLenMax += 32
+   nDlgWidth := Max( nLenMax + 40, (nBtnLenMax+16) + 24 )
+
+   INIT DIALOG oDlg TITLE cTitle BACKCOLOR ::aColors[CLR_DLG] ;
+      SIZE nDlgWidth, (Len(arr) * nLineHeight+4) + 140 STYLE WND_NOTITLE + WND_NOSIZEBOX FONT oFont
+
+   ADD HEADER PANEL oPanelH HEIGHT HEA_HEIGHT TEXTCOLOR ::aColors[CLR_BTN2] BACKCOLOR ::aColors[CLR_HEAD] ;
+      FONT oFont TEXT cTitle COORS 20
+   y1 += oPanelH:nHeight
+
+   nAlign := SS_CENTER
+
+   x1 := Int((nDlgWidth - nLenMax) / 2 )
+   FOR i := 1 TO Len( arr )
+      @ x1, y1+(i-1)*(nLineHeight+4) SAY arr[i] SIZE nLenMax, nLineHeight ;
+         STYLE nAlign COLOR ::aColors[CLR_BTN2] TRANSPARENT
+   NEXT
+
+   @ Int( ( nDlgWidth - nBtnLenMax ) / 2 ), oDlg:nHeight-48 OWNERBUTTON SIZE nBtnLenMax, 32 ;
+      TEXT "Close" COLOR ::aColors[CLR_BTN1] ;
+      HSTYLES ::oStyleNormal, ::oStylePressed, ::oStyleOver ;
+      ON SIZE ANCHOR_LEFTABS + ANCHOR_RIGHTABS + ANCHOR_BOTTOMABS ;
+      ON CLICK {||hwg_EndDialog()}
+
+   ACTIVATE DIALOG oDlg CENTER
+
+   RETURN .T.
 
 METHOD KillSound() CLASS HPlayer
 

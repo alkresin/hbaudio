@@ -7,4 +7,5 @@ libs=hbaudio
 
 player.prg
 hplayer.prg
+hfileselect.prg
 common.prg
