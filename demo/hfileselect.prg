@@ -26,6 +26,7 @@ CLASS HFileSelect
 
    DATA oDlg
    DATA aColors
+   DATA aFilters
    DATA cCurrPath
    DATA oStyleNormal, oStylePressed, oStyleOver
 
@@ -34,8 +35,9 @@ CLASS HFileSelect
 
 ENDCLASS
 
-METHOD New( aColors, cCurrPath ) CLASS HFileSelect
+METHOD New( aFilters, cCurrPath, aColors ) CLASS HFileSelect
 
+   ::aFilters := Iif( Empty( aFilters ), { {"All Files","*"} }, aFilters )
    ::aColors := Iif( Empty(aColors), ;
       {CLR_BGRAY1,CLR_BGRAY2,CLR_DBROWN,CLR_GBROWN,CLR_BLACK,CLR_WHITE}, aColors )
    ::cCurrPath := Iif( Empty(cCurrPath), hb_DirBase(), cCurrPath )
@@ -51,15 +53,15 @@ METHOD New( aColors, cCurrPath ) CLASS HFileSelect
 
 METHOD Show() CLASS HFileSelect
 
-   LOCAL oDlg, oPaneHea, oPaneTop, oBrw1, oBrw2
+   LOCAL oDlg, oPaneHea, oPaneTop, oBrw1, oBrw2, oCombo
    LOCAL oFont := HWindow():Getmain():oFont, cRes := ""
    LOCAL bEnter1 := {||
-      LOCAL cPath := ""
+      LOCAL cPath := "", i
       FOR i := Len(oBrw1:aArray) TO oBrw1:nCurrent STEP -1
          cPath += Iif( oBrw1:aArray[i]=='/', "", oBrw1:aArray[i] ) + hb_ps()
       NEXT
       ::cCurrPath := cPath
-      oBrw2:aArray := SetBrw2( Self )
+      oBrw2:aArray := SetBrw2( Self, oCombo:Value )
       oBrw2:Top()
       oBrw2:Refresh()
 
@@ -68,7 +70,7 @@ METHOD Show() CLASS HFileSelect
    LOCAL bEnter2 := {||
       IF 'D' $ oBrw2:aArray[oBrw2:nCurrent,5]
          ::cCurrPath += oBrw2:aArray[oBrw2:nCurrent,1] + hb_ps()
-         oBrw2:aArray := SetBrw2( Self )
+         oBrw2:aArray := SetBrw2( Self, oCombo:Value )
          oBrw2:Top()
          oBrw2:Refresh()
          oBrw1:aArray := SetBrw1( Self, ::cCurrPath )
@@ -78,6 +80,12 @@ METHOD Show() CLASS HFileSelect
          cRes := ::cCurrPath + oBrw2:aArray[oBrw2:nCurrent,1]
          hwg_EndDialog()
       ENDIF
+      RETURN .T.
+   }
+   LOCAL bCombo := {||
+      oBrw2:aArray := SetBrw2( Self, oCombo:Value )
+      oBrw2:Top()
+      oBrw2:Refresh()
       RETURN .T.
    }
 
@@ -108,16 +116,19 @@ METHOD Show() CLASS HFileSelect
    @ oBrw1:nWidth+4, oBrw1:nTop BROWSE oBrw2 ARRAY ;
       SIZE oDlg:nWidth-oBrw1:nWidth-4, oBrw1:nHeight ;
       ON SIZE ANCHOR_TOPABS + ANCHOR_BOTTOMABS + ANCHOR_RIGHTABS
-   oBrw2:aArray := SetBrw2( Self )
+   oBrw2:aArray := SetBrw2( Self, 1 )
    oBrw2:bEnter := bEnter2
    oBrw2:bColor := ::aColors[CLR_STYLE]
    oBrw2:bColorSel := ::aColors[CLR_BOARD]
    oBrw2:tColor := oBrw2:tColorSel := ::aColors[CLR_BTN2]
    oBrw2:lDispHead := oBrw2:lDispSep := .F.
 
-   oBrw2:AddColumn( HColumn():New( "",{|v,o|o:aArray[o:nCurrent,1]},"C",48,0 ) )
+   oBrw2:AddColumn( HColumn():New( "",{|v,o|Iif('D' $ o:aArray[o:nCurrent,5],"<Dir>",FSize(o:aArray[o:nCurrent,2]))},"C",8,0,,, DT_RIGHT ) )
+   oBrw2:AddColumn( HColumn():New( "",{|v,o|o:aArray[o:nCurrent,1]},"C",64,0 ) )
 
    @ @ oBrw1:nWidth, oBrw1:nTop SPLITTER SIZE 4,oBrw1:nHeight DIVIDE {oBrw1} FROM {oBrw2}
+
+   @ oBrw1:nWidth+4,oDlg:nHeight-48 COMBOBOX oCombo ITEMS ::aFilters SIZE 240, 28 DISPLAYCOUNT 3 ON CHANGE bCombo
 
    @ oDlg:nWidth-240, oDlg:nHeight-48 OWNERBUTTON SIZE 100,30 TEXT "Cancel" ;
       COLOR ::aColors[CLR_BTN1] HSTYLES ::oStyleNormal, ::oStylePressed, ::oStyleOver ;
@@ -140,22 +151,27 @@ STATIC FUNCTION SetBrw1( o, cPath )
    IF '\' $ cPath
       cPath := StrTran( cPath, '\', '/' )
    ENDIF
+   IF Right( cPath,1 ) == '/'
+      cPath := hb_strShrink( cPath,1 )
+   ENDIF
    arr := hb_ATokens( cPath, '/' )
-   arr2 := Array( Len( arr ) )
    IF Empty( arr[1] )
       arr[1] := '/'
    ENDIF
+
+   arr2 := Array( Len( arr ) )
    FOR i := 1 TO Len( arr )
       arr2[Len(arr)-i+1] := arr[i]
    NEXT
 
    RETURN arr2
 
-STATIC FUNCTION SetBrw2( o )
+STATIC FUNCTION SetBrw2( o, nItem )
 
-   LOCAL aDir , i, n1 := 0
+   LOCAL aDir , i, j, n1 := 0, af, lf
 
    aDir := Directory( o:cCurrPath+"*", "HSD" )
+   af := hb_ATokens( o:aFilters[nItem,2], ';' )
 
    FOR i := 1 TO Len( aDir )
       IF Empty( aDir[i] )
@@ -166,6 +182,19 @@ STATIC FUNCTION SetBrw2( o )
          n1++
       ELSEIF "D" $ aDir[i,5]
          aDir[i,1] := " " + aDir[i,1]
+      ELSE
+         lf := .F.
+         FOR j := 1 TO Len( af )
+            IF hb_FileMatch( aDir[i,1], af[j] )
+               lf := .T.
+               EXIT
+            ENDIF
+         NEXT
+         IF !lf
+            ADel( aDir, i )
+            i --
+            n1++
+         ENDIF
       ENDIF
    NEXT
    IF n1 > 0
@@ -182,3 +211,10 @@ STATIC FUNCTION SetBrw2( o )
    NEXT
 
    RETURN aDir
+
+STATIC FUNCTION FSize( n )
+
+   RETURN Iif( n<=999999, PAdl(Ltrim(Str(n)),6), ;
+      Iif( n<10238976,PAdl(Left(Ltrim(Str(Round(n/1024,1))),5)+"K",6), ;
+      Iif( n<10484711424, PAdl(Left(Ltrim(Str(Round(n/1048576,1))),5)+"M",6), ;
+      PAdl(Left(Ltrim(Str(Round(n/1073741824,1))),5)+"G",6) ) ) )

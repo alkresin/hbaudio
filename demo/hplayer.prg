@@ -95,7 +95,7 @@ METHOD New( oPane, oWnd, aColors, cLastPath, nVolume ) CLASS HPlayer
 
    @ 2, 2 DRAWN ::oBtnAdd SIZE 20, 28 ;
       HSTYLES { ::oStyleNormal, ::oStyleOver, ::oStyleNormal }
-   ::oBtnAdd:cTooltip := "Open file"
+   //::oBtnAdd:cTooltip := "Open file"
    ::oBtnAdd:bPaint := bPaintB2
    ::oBtnAdd:bClick := {|| ::PlayFile("") }
 
@@ -134,7 +134,7 @@ METHOD PlayFile( cFile ) CLASS HPlayer
          ::cFile := cFile
       ENDIF
    ELSEIF cFile == ""
-      ohf := HFileSelect():New( , ::cLastPath )
+      ohf := HFileSelect():New( { {"Supported  Files","*.wav;*.mp3;*.flac"}, {"All Files","*"} }, ::cLastPath )
       ::cFile := ohf:Show()
 
    ENDIF
