@@ -25,13 +25,16 @@
 CLASS HFileSelect
 
    DATA oDlg
+   DATA lToSave   INIT .F.
    DATA aColors
    DATA aFilters
    DATA cCurrPath
    DATA oStyleNormal, oStylePressed, oStyleOver
 
-   METHOD New( aColors, cCurrPath )
+   METHOD New( aFilters, cCurrPath, aColors )
    METHOD Show()
+   METHOD Open( aFilters, cCurrPath, aColors )
+   METHOD Save( aFilters, cCurrPath, aColors )
 
 ENDCLASS
 
@@ -53,8 +56,8 @@ METHOD New( aFilters, cCurrPath, aColors ) CLASS HFileSelect
 
 METHOD Show() CLASS HFileSelect
 
-   LOCAL oDlg, oPaneHea, oPaneTop, oBrw1, oBrw2, oCombo
-   LOCAL oFont := HWindow():Getmain():oFont, cRes := ""
+   LOCAL oDlg, oPaneHea, oPaneTop, oPaneF, oBrw1, oBrw2, oCombo, oEdit
+   LOCAL oFont := HWindow():Getmain():oFont, cRes := "", nPaneFHeight := 4
    LOCAL bEnter1 := {||
       LOCAL cPath := "", i
       FOR i := Len(oBrw1:aArray) TO oBrw1:nCurrent STEP -1
@@ -77,7 +80,11 @@ METHOD Show() CLASS HFileSelect
          oBrw1:Top()
          oBrw1:Refresh()
       ELSE
-         cRes := ::cCurrPath + oBrw2:aArray[oBrw2:nCurrent,1]
+         IF ::lToSave
+            cRes := oEdit:GetText()
+         ELSE
+            cRes := ::cCurrPath + oBrw2:aArray[oBrw2:nCurrent,1]
+         ENDIF
          hwg_EndDialog()
       ENDIF
       RETURN .T.
@@ -88,6 +95,14 @@ METHOD Show() CLASS HFileSelect
       oBrw2:Refresh()
       RETURN .T.
    }
+   LOCAL bPosChg2 := {||
+      oEdit:SetText( oBrw2:aArray[oBrw2:nCurrent,1] )
+      RETURN .T.
+   }
+
+   IF ::lToSave
+      nPaneFHeight := 30
+   ENDIF
 
    INIT DIALOG oDlg TITLE "" BACKCOLOR ::aColors[CLR_DLG] FONT oFont ;
       AT 100, 100 SIZE 700, 600 STYLE WND_NOTITLE
@@ -102,7 +117,7 @@ METHOD Show() CLASS HFileSelect
       BACKCOLOR ::aColors[CLR_STYLE] ON SIZE ANCHOR_LEFTABS + ANCHOR_RIGHTABS
 
    @ 0, oPaneHea:nHeight+oPaneTop:nHeight BROWSE oBrw1 ARRAY ;
-      SIZE 180, oDlg:nHeight-oPaneHea:nHeight-oPaneTop:nHeight-BOTTOM_HEIGHT ;
+      SIZE 180, oDlg:nHeight-oPaneHea:nHeight-oPaneTop:nHeight-BOTTOM_HEIGHT-nPaneFHeight ;
       ON SIZE ANCHOR_TOPABS + ANCHOR_BOTTOMABS NO VSCROLL
    oBrw1:aArray := SetBrw1( Self, ::cCurrPath )
    oBrw1:bEnter := bEnter1
@@ -128,6 +143,13 @@ METHOD Show() CLASS HFileSelect
 
    @ @ oBrw1:nWidth, oBrw1:nTop SPLITTER SIZE 4,oBrw1:nHeight DIVIDE {oBrw1} FROM {oBrw2}
 
+   @ 0, oBrw1:nTop+oBrw1:nHeight PANEL oPaneF SIZE oDlg:nWidth, nPaneFHeight ;
+      BACKCOLOR ::aColors[CLR_STYLE] ON SIZE ANCHOR_LEFTABS + ANCHOR_RIGHTABS
+   IF ::lToSave
+      @ 40,2 EDITBOX oEdit CAPTION "" OF oPaneF SIZE oDlg:nWidth-80,26 ON SIZE ANCHOR_LEFTABS + ANCHOR_RIGHTABS
+      oBrw2:bPosChanged := bPosChg2
+   ENDIF
+
    @ oBrw1:nWidth+4,oDlg:nHeight-48 COMBOBOX oCombo ITEMS ::aFilters SIZE 240, 28 DISPLAYCOUNT 3 ON CHANGE bCombo
 
    @ oDlg:nWidth-240, oDlg:nHeight-48 OWNERBUTTON SIZE 100,30 TEXT "Cancel" ;
@@ -143,6 +165,20 @@ METHOD Show() CLASS HFileSelect
    ACTIVATE DIALOG oDlg
 
    RETURN cRes
+
+METHOD Open( aFilters, cCurrPath, aColors ) CLASS HFileSelect
+
+   LOCAL o := ::New( aFilters, cCurrPath, aColors )
+
+   RETURN o:Show()
+
+METHOD Save( aFilters, cCurrPath, aColors ) CLASS HFileSelect
+
+   LOCAL o := ::New( aFilters, cCurrPath, aColors )
+
+   o:lToSave := .T.
+
+   RETURN o:Show()
 
 STATIC FUNCTION SetBrw1( o, cPath )
 

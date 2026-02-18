@@ -134,8 +134,7 @@ METHOD PlayFile( cFile ) CLASS HPlayer
          ::cFile := cFile
       ENDIF
    ELSEIF cFile == ""
-      ohf := HFileSelect():New( { {"Supported  Files","*.wav;*.mp3;*.flac"}, {"All Files","*"} }, ::cLastPath )
-      ::cFile := ohf:Show()
+      ::cFile := HFileSelect():Open( { {"Supported  Files","*.wav;*.mp3;*.flac"}, {"All Files","*"} }, ::cLastPath )
 
    ENDIF
 
