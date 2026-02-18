@@ -122,7 +122,7 @@ METHOD Show() CLASS HFileSelect
    oBrw1:aArray := SetBrw1( Self, ::cCurrPath )
    oBrw1:bEnter := bEnter1
    oBrw1:bColor := ::aColors[CLR_STYLE]
-   oBrw1:bColorSel := ::aColors[CLR_BOARD]
+   oBrw1:bColorSel := oBrw1:htbColor := ::aColors[CLR_BOARD]
    oBrw1:tColor := oBrw1:tColorSel := ::aColors[CLR_BTN2]
    oBrw1:lDispHead := oBrw1:lDispSep := .F.
 
@@ -134,7 +134,7 @@ METHOD Show() CLASS HFileSelect
    oBrw2:aArray := SetBrw2( Self, 1 )
    oBrw2:bEnter := bEnter2
    oBrw2:bColor := ::aColors[CLR_STYLE]
-   oBrw2:bColorSel := ::aColors[CLR_BOARD]
+   oBrw2:bColorSel := oBrw2:htbColor := ::aColors[CLR_BOARD]
    oBrw2:tColor := oBrw2:tColorSel := ::aColors[CLR_BTN2]
    oBrw2:lDispHead := oBrw2:lDispSep := .F.
 

@@ -134,7 +134,7 @@ METHOD PlayFile( cFile ) CLASS HPlayer
          ::cFile := cFile
       ENDIF
    ELSEIF cFile == ""
-      ::cFile := HFileSelect():Open( { {"Supported  Files","*.wav;*.mp3;*.flac"}, {"All Files","*"} }, ::cLastPath )
+      ::cFile := HFileSelect():Open( { {"Supported  Files","*.wav;*.mp3;*.flac"}, {"All Files","*"} }, ::cLastPath, ::aColors )
 
    ENDIF
 
@@ -243,7 +243,7 @@ METHOD Volume() CLASS HPlayer
       FONT oFont TEXT "Volume" COORS 20 BTN_CLOSE
    oPaneHea:SetSysbtnColor( ::aColors[CLR_BTN2], ::aColors[CLR_BOARD] )
 
-   @ 20, 40 TRACK oTrack SIZE 220, 20 COLOR ::aColors[CLR_BTN2] BACKCOLOR ::aColors[CLR_BOARD] ;
+   @ 20, 40 TRACK oTrack SIZE 220, 18 COLOR ::aColors[CLR_BTN2] BACKCOLOR ::aColors[CLR_DLG] ;
       SLIDER SIZE 20 SLIDER HSTYLE HStyle():New( { 0 }, 1, {8,8,8,8} ) AXIS
    oTrack:bChange := bVolChange
    oTrack:Value := nVol/2

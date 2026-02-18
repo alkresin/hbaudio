@@ -17,7 +17,8 @@
 #define PL_HEIGHT          32
 
 STATIC oPlayer
-STATIC arrColors := { {CLR_BGRAY1,CLR_BGRAY2,CLR_DBROWN,CLR_GBROWN,CLR_BLACK,CLR_WHITE} }
+STATIC arrColors := { {CLR_BGRAY1,CLR_BGRAY2,CLR_DBROWN,CLR_GBROWN,CLR_BLACK,CLR_WHITE}, ;
+   {0x797979,0x555555,0x222222,0x353535,CLR_BLACK,CLR_WHITE} }
 STATIC nTheme := 1, cLastPath, oFontMain, nVolume := 0.5
 
 FUNCTION Main( cFile )
@@ -42,7 +43,7 @@ FUNCTION Main( cFile )
    @ 0, HEA_HEIGHT PANEL oPaneTop SIZE oMain:nWidth, PL_HEIGHT ;
       ON SIZE ANCHOR_LEFTABS + ANCHOR_RIGHTABS
 
-   oPlayer := HPlayer():New( oPaneTop, oPaneHea, arrColors[1], cLastPath, nVolume )
+   oPlayer := HPlayer():New( oPaneTop, oPaneHea, arrColors[nTheme], cLastPath, nVolume )
 
    SET KEY 0, VK_SPACE TO Iif( oPlayer:lStopped, oPlayer:Play(), oPlayer:Stop() )
 
@@ -73,6 +74,12 @@ STATIC FUNCTION ReadIni()
                ENDIF
                IF hb_hHaskey( aSect, cTemp := "volume" ) .AND. !Empty( cTemp := aSect[ cTemp ] )
                   nVolume := Val( cTemp )
+               ENDIF
+               IF hb_hHaskey( aSect, cTemp := "theme" ) .AND. !Empty( cTemp := aSect[ cTemp ] )
+                  nTheme := Val( cTemp )
+                  IF nTheme <= 0 .OR. nTheme > Len( arrColors )
+                     nTheme := 1
+                  ENDIF
                ENDIF
             ENDIF
          ENDIF
