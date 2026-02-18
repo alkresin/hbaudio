@@ -39,6 +39,9 @@ METHOD New( aColors, cCurrPath ) CLASS HFileSelect
    ::aColors := Iif( Empty(aColors), ;
       {CLR_BGRAY1,CLR_BGRAY2,CLR_DBROWN,CLR_GBROWN,CLR_BLACK,CLR_WHITE}, aColors )
    ::cCurrPath := Iif( Empty(cCurrPath), hb_DirBase(), cCurrPath )
+   IF !( Right( ::cCurrPath,1 ) $ "/\" )
+      ::cCurrPath += hb_ps()
+   ENDIF
 
    ::oStyleNormal := HStyle():New( {::aColors[CLR_BOARD]}, 1 )
    ::oStylePressed := HStyle():New( {::aColors[CLR_STYLE]}, 1,, 2, ::aColors[CLR_BTN1] )
@@ -49,7 +52,34 @@ METHOD New( aColors, cCurrPath ) CLASS HFileSelect
 METHOD Show() CLASS HFileSelect
 
    LOCAL oDlg, oPaneHea, oPaneTop, oBrw1, oBrw2
-   LOCAL oFont := HWindow():Getmain():oFont, lRes := .F.
+   LOCAL oFont := HWindow():Getmain():oFont, cRes := ""
+   LOCAL bEnter1 := {||
+      LOCAL cPath := ""
+      FOR i := Len(oBrw1:aArray) TO oBrw1:nCurrent STEP -1
+         cPath += Iif( oBrw1:aArray[i]=='/', "", oBrw1:aArray[i] ) + hb_ps()
+      NEXT
+      ::cCurrPath := cPath
+      oBrw2:aArray := SetBrw2( Self )
+      oBrw2:Top()
+      oBrw2:Refresh()
+
+      RETURN .T.
+   }
+   LOCAL bEnter2 := {||
+      IF 'D' $ oBrw2:aArray[oBrw2:nCurrent,5]
+         ::cCurrPath += oBrw2:aArray[oBrw2:nCurrent,1] + hb_ps()
+         oBrw2:aArray := SetBrw2( Self )
+         oBrw2:Top()
+         oBrw2:Refresh()
+         oBrw1:aArray := SetBrw1( Self, ::cCurrPath )
+         oBrw1:Top()
+         oBrw1:Refresh()
+      ELSE
+         cRes := ::cCurrPath + oBrw2:aArray[oBrw2:nCurrent,1]
+         hwg_EndDialog()
+      ENDIF
+      RETURN .T.
+   }
 
    INIT DIALOG oDlg TITLE "" BACKCOLOR ::aColors[CLR_DLG] FONT oFont ;
       AT 100, 100 SIZE 700, 600 STYLE WND_NOTITLE
@@ -60,18 +90,32 @@ METHOD Show() CLASS HFileSelect
       BACKCOLOR ::aColors[CLR_HEAD] FONT oFont TEXT "File selection" COORS 20 BTN_CLOSE
    oPaneHea:SetSysbtnColor( ::aColors[CLR_BTN2], ::aColors[CLR_BOARD] )
 
-   @ 0, oPaneHea:nHeight PANEL oPaneTop SIZE oDlg:nWidth, HEA_HEIGHT+4 ;
+   @ 0, oPaneHea:nHeight PANEL oPaneTop SIZE oDlg:nWidth, 4 ;
       BACKCOLOR ::aColors[CLR_STYLE] ON SIZE ANCHOR_LEFTABS + ANCHOR_RIGHTABS
 
    @ 0, oPaneHea:nHeight+oPaneTop:nHeight BROWSE oBrw1 ARRAY ;
       SIZE 180, oDlg:nHeight-oPaneHea:nHeight-oPaneTop:nHeight-BOTTOM_HEIGHT ;
       ON SIZE ANCHOR_TOPABS + ANCHOR_BOTTOMABS NO VSCROLL
-   oBrw1:aArray := SetBrw1( Self )
+   oBrw1:aArray := SetBrw1( Self, ::cCurrPath )
+   oBrw1:bEnter := bEnter1
+   oBrw1:bColor := ::aColors[CLR_STYLE]
+   oBrw1:bColorSel := ::aColors[CLR_BOARD]
+   oBrw1:tColor := oBrw1:tColorSel := ::aColors[CLR_BTN2]
+   oBrw1:lDispHead := oBrw1:lDispSep := .F.
+
+   oBrw1:AddColumn( HColumn():New( "",{|v,o|o:aArray[o:nCurrent]},"C",32,0 ) )
 
    @ oBrw1:nWidth+4, oBrw1:nTop BROWSE oBrw2 ARRAY ;
       SIZE oDlg:nWidth-oBrw1:nWidth-4, oBrw1:nHeight ;
-      ON SIZE ANCHOR_TOPABS + ANCHOR_BOTTOMABS + ANCHOR_RIGHTABS NO VSCROLL
+      ON SIZE ANCHOR_TOPABS + ANCHOR_BOTTOMABS + ANCHOR_RIGHTABS
    oBrw2:aArray := SetBrw2( Self )
+   oBrw2:bEnter := bEnter2
+   oBrw2:bColor := ::aColors[CLR_STYLE]
+   oBrw2:bColorSel := ::aColors[CLR_BOARD]
+   oBrw2:tColor := oBrw2:tColorSel := ::aColors[CLR_BTN2]
+   oBrw2:lDispHead := oBrw2:lDispSep := .F.
+
+   oBrw2:AddColumn( HColumn():New( "",{|v,o|o:aArray[o:nCurrent,1]},"C",48,0 ) )
 
    @ @ oBrw1:nWidth, oBrw1:nTop SPLITTER SIZE 4,oBrw1:nHeight DIVIDE {oBrw1} FROM {oBrw2}
 
@@ -83,23 +127,58 @@ METHOD Show() CLASS HFileSelect
    @ oDlg:nWidth-120, oDlg:nHeight-48 OWNERBUTTON SIZE 100,30 TEXT "Select" ;
       COLOR ::aColors[CLR_BTN1] HSTYLES ::oStyleNormal, ::oStylePressed, ::oStyleOver ;
       ON SIZE ANCHOR_LEFTABS + ANCHOR_RIGHTABS + ANCHOR_BOTTOMABS ;
-      ON CLICK {||lRes := .T., hwg_EndDialog()}
+      ON CLICK bEnter2
 
    ACTIVATE DIALOG oDlg
 
-   IF lRes
+   RETURN cRes
+
+STATIC FUNCTION SetBrw1( o, cPath )
+
+   LOCAL arr, arr2, i
+
+   IF '\' $ cPath
+      cPath := StrTran( cPath, '\', '/' )
    ENDIF
+   arr := hb_ATokens( cPath, '/' )
+   arr2 := Array( Len( arr ) )
+   IF Empty( arr[1] )
+      arr[1] := '/'
+   ENDIF
+   FOR i := 1 TO Len( arr )
+      arr2[Len(arr)-i+1] := arr[i]
+   NEXT
 
-   RETURN ""
-
-STATIC FUNCTION SetBrw1( o )
-
-   RETURN { "Home" }
+   RETURN arr2
 
 STATIC FUNCTION SetBrw2( o )
 
-   LOCAL arr
+   LOCAL aDir , i, n1 := 0
 
-   arr := Directory( o:cCurrPath+"*", "HSD" )
+   aDir := Directory( o:cCurrPath+"*", "HSD" )
 
-   RETURN arr
+   FOR i := 1 TO Len( aDir )
+      IF Empty( aDir[i] )
+         LOOP
+      ELSEIF aDir[i,1] == "." .OR. aDir[i,1] == ".."
+         ADel( aDir, i )
+         i --
+         n1++
+      ELSEIF "D" $ aDir[i,5]
+         aDir[i,1] := " " + aDir[i,1]
+      ENDIF
+   NEXT
+   IF n1 > 0
+      aDir := ASize( aDir, Len(aDir)-n1 )
+   ENDIF
+
+   aDir := ASort( aDir,,, {|z,y|Lower(z[1]) < Lower(y[1])} )
+   FOR i := 1 TO Len( aDir )
+      IF "D" $ aDir[i,5]
+         IF Left( aDir[i,1],1 ) == " "
+            aDir[i,1] := Substr( aDir[i,1],2 )
+         ENDIF
+      ENDIF
+   NEXT
+
+   RETURN aDir

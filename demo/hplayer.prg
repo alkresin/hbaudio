@@ -134,16 +134,9 @@ METHOD PlayFile( cFile ) CLASS HPlayer
          ::cFile := cFile
       ENDIF
    ELSEIF cFile == ""
+      ohf := HFileSelect():New( , ::cLastPath )
+      ::cFile := ohf:Show()
 
-#ifdef __PLATFORM__UNIX
-      ::cFile := hwg_SelectfileEx( , ::cLastPath, { { "All files", "*.*" } } )
-#else
-      ::cFile := hwg_Selectfile( { "All files" }, { "*.*" }, ::cLastPath  )
-#endif
-/*
-      ohf := HFileSelect():New()
-      ohf:Show()
-*/
    ENDIF
 
    IF !Empty( ::cFile )
