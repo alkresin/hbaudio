@@ -60,17 +60,7 @@ METHOD Show() CLASS HFileSelect
    LOCAL oFont := HWindow():Getmain():oFont, cRes := "", nPaneFHeight := 4
    LOCAL bEnter1 := {||
       LOCAL cPath := "", i
-      IF oBrw1:nCurrent >= ::nPathPos
-         FOR i := Len(oBrw1:aArray) TO oBrw1:nCurrent STEP -1
-            cPath += hb_ps() + oBrw1:aArray[i]
-         NEXT
-      ELSE
-         IF oBrw1:aArray[oBrw1:nCurrent] == "== Root"
-            cPath := "/"
-         ELSEIF oBrw1:aArray[oBrw1:nCurrent] == "== Home"
-            cPath := hb_getenv( "HOME" )
-         ENDIF
-      ENDIF
+      cPath := oBrw1:aArray[oBrw1:nCurrent,2]
       ::cCurrPath := cPath
       IF !( Right( ::cCurrPath,1 ) $ "/\" )
          ::cCurrPath += hb_ps()
@@ -88,7 +78,8 @@ METHOD Show() CLASS HFileSelect
          oBrw2:Top()
          oBrw2:Refresh()
          oBrw1:aArray := SetBrw1( Self, ::cCurrPath )
-         oBrw1:Top()
+         //oBrw1:Top()
+         oBrw1:nCurrent := oBrw1:rowPos := ::nPathPos
          oBrw1:Refresh()
       ELSE
          IF ::lToSave
@@ -144,7 +135,7 @@ METHOD Show() CLASS HFileSelect
    oBrw1:tColor := oBrw1:tColorSel := ::aColors[CLR_BTN2]
    oBrw1:lDispHead := oBrw1:lDispSep := .F.
 
-   oBrw1:AddColumn( HColumn():New( "",{|v,o|o:aArray[o:nCurrent]},"C",32,0 ) )
+   oBrw1:AddColumn( HColumn():New( "",{|v,o|o:aArray[o:nCurrent,1]},"C",32,0 ) )
    oBrw1:nCurrent := oBrw1:rowPos := ::nPathPos
 
    @ oBrw1:nWidth+4, oBrw1:nTop BROWSE oBrw2 ARRAY ;
@@ -217,15 +208,21 @@ STATIC FUNCTION SetBrw1( o, cPath )
       arr[1] := '/'
    ENDIF
 
-   arr2 := Array( Len( arr ) )
+   arr2 := Array( Len( arr ),2 )
    FOR i := 1 TO Len( arr )
-      arr2[Len(arr)-i+1] := arr[i]
+      arr2[Len(arr)-i+1,1] := arr[i]
+   NEXT
+   cPath := ""
+   FOR i := Len( arr2 ) TO 1 STEP -1
+      cPath += hb_ps() + arr2[i,1]
+      arr2[i,2] := cPath
+      //hwg_writelog( arr2[i,1] + "  " + arr2[i,2] )
    NEXT
 
    o:nPathPos := 1
 #ifdef __PLATFORM__UNIX
-   hb_AIns( arr2, 1 , "== Home", .T. )
-   hb_AIns( arr2, 1 , "== Root", .T. )
+   hb_AIns( arr2, 1 , {"== Home",hb_getenv("HOME")}, .T. )
+   hb_AIns( arr2, 1 , {"== Root","/"}, .T. )
    o:nPathPos := 3
 #else
 #endif
