@@ -24,12 +24,13 @@
 
 CLASS HFileSelect
 
+   CLASS VAR cCurrPath SHARED
    DATA oDlg
    DATA lToSave   INIT .F.
    DATA aColors
    DATA aFilters
-   DATA cCurrPath
    DATA oStyleNormal, oStylePressed, oStyleOver
+   DATA nPathPos
 
    METHOD New( aFilters, cCurrPath, aColors )
    METHOD Show()
@@ -43,9 +44,8 @@ METHOD New( aFilters, cCurrPath, aColors ) CLASS HFileSelect
    ::aFilters := Iif( Empty( aFilters ), { {"All Files","*"} }, aFilters )
    ::aColors := Iif( Empty(aColors), ;
       {CLR_BGRAY1,CLR_BGRAY2,CLR_DBROWN,CLR_GBROWN,CLR_BLACK,CLR_WHITE}, aColors )
-   ::cCurrPath := Iif( Empty(cCurrPath), hb_DirBase(), cCurrPath )
-   IF !( Right( ::cCurrPath,1 ) $ "/\" )
-      ::cCurrPath += hb_ps()
+   IF !Empty( cCurrPath )
+      ::cCurrPath := cCurrPath
    ENDIF
 
    ::oStyleNormal := HStyle():New( {::aColors[CLR_BOARD]}, 1 )
@@ -60,10 +60,21 @@ METHOD Show() CLASS HFileSelect
    LOCAL oFont := HWindow():Getmain():oFont, cRes := "", nPaneFHeight := 4
    LOCAL bEnter1 := {||
       LOCAL cPath := "", i
-      FOR i := Len(oBrw1:aArray) TO oBrw1:nCurrent STEP -1
-         cPath += Iif( oBrw1:aArray[i]=='/', "", oBrw1:aArray[i] ) + hb_ps()
-      NEXT
+      IF oBrw1:nCurrent >= ::nPathPos
+         FOR i := Len(oBrw1:aArray) TO oBrw1:nCurrent STEP -1
+            cPath += hb_ps() + oBrw1:aArray[i]
+         NEXT
+      ELSE
+         IF oBrw1:aArray[oBrw1:nCurrent] == "== Root"
+            cPath := "/"
+         ELSEIF oBrw1:aArray[oBrw1:nCurrent] == "== Home"
+            cPath := hb_getenv( "HOME" )
+         ENDIF
+      ENDIF
       ::cCurrPath := cPath
+      IF !( Right( ::cCurrPath,1 ) $ "/\" )
+         ::cCurrPath += hb_ps()
+      ENDIF
       oBrw2:aArray := SetBrw2( Self, oCombo:Value )
       oBrw2:Top()
       oBrw2:Refresh()
@@ -81,7 +92,7 @@ METHOD Show() CLASS HFileSelect
          oBrw1:Refresh()
       ELSE
          IF ::lToSave
-            cRes := oEdit:GetText()
+            cRes := ::cCurrPath + oEdit:GetText()
          ELSE
             cRes := ::cCurrPath + oBrw2:aArray[oBrw2:nCurrent,1]
          ENDIF
@@ -102,6 +113,13 @@ METHOD Show() CLASS HFileSelect
 
    IF ::lToSave
       nPaneFHeight := 30
+   ENDIF
+
+   IF Empty( ::cCurrPath )
+      ::cCurrPath := hb_DirBase()
+   ENDIF
+   IF !( Right( ::cCurrPath,1 ) $ "/\" )
+      ::cCurrPath += hb_ps()
    ENDIF
 
    INIT DIALOG oDlg TITLE "" BACKCOLOR ::aColors[CLR_DLG] FONT oFont ;
@@ -127,6 +145,7 @@ METHOD Show() CLASS HFileSelect
    oBrw1:lDispHead := oBrw1:lDispSep := .F.
 
    oBrw1:AddColumn( HColumn():New( "",{|v,o|o:aArray[o:nCurrent]},"C",32,0 ) )
+   oBrw1:nCurrent := oBrw1:rowPos := ::nPathPos
 
    @ oBrw1:nWidth+4, oBrw1:nTop BROWSE oBrw2 ARRAY ;
       SIZE oDlg:nWidth-oBrw1:nWidth-4, oBrw1:nHeight ;
@@ -190,6 +209,9 @@ STATIC FUNCTION SetBrw1( o, cPath )
    IF Right( cPath,1 ) == '/'
       cPath := hb_strShrink( cPath,1 )
    ENDIF
+   IF Left( cPath,1 ) == '/'
+      cPath := Substr( cPath,2 )
+   ENDIF
    arr := hb_ATokens( cPath, '/' )
    IF Empty( arr[1] )
       arr[1] := '/'
@@ -199,6 +221,14 @@ STATIC FUNCTION SetBrw1( o, cPath )
    FOR i := 1 TO Len( arr )
       arr2[Len(arr)-i+1] := arr[i]
    NEXT
+
+   o:nPathPos := 1
+#ifdef __PLATFORM__UNIX
+   hb_AIns( arr2, 1 , "== Home", .T. )
+   hb_AIns( arr2, 1 , "== Root", .T. )
+   o:nPathPos := 3
+#else
+#endif
 
    RETURN arr2
 
