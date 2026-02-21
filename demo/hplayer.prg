@@ -158,7 +158,7 @@ METHOD New( oPane, oWnd, aColors, cLastPath, nVolume, lTime, lGraph ) CLASS HPla
 
 METHOD PlayFile( cFile ) CLASS HPlayer
 
-   LOCAL oTimer, ohf
+   LOCAL oTimer, ohf, ymax := 0.9, ymin := -0.9
 
    ::cFile := Nil
 
@@ -168,7 +168,6 @@ METHOD PlayFile( cFile ) CLASS HPlayer
       ENDIF
    ELSEIF cFile == ""
       ::cFile := HFileSelect():Open( { {"Supported  Files","*.wav;*.mp3;*.flac"}, {"All Files","*"} }, ::cLastPath, ::aColors )
-
    ENDIF
 
    IF !Empty( ::cFile )
@@ -183,6 +182,9 @@ METHOD PlayFile( cFile ) CLASS HPlayer
       ENDIF
       IF ::lGraph
          ::pSound4Graph := ma_Sound_Init( ::pEngine, ::cFile, .T. )
+         ma_GetRange( ::pSound4Graph, @ymax, @ymin )
+         ::oGraph:yMaxSet := ymax
+         ::oGraph:yMinSet := ymin
       ENDIF
       ::cLastPath := hb_fnameDir( ::cFile )
 
@@ -295,7 +297,7 @@ METHOD Volume() CLASS HPlayer
 
 METHOD SetGraphData( nOffset ) CLASS HPlayer
 
-   LOCAL i, iCou, j := 1
+   LOCAL i, iCou, j := 1, lRecalc := .F.
    LOCAL nDataLen := ::oGraph:nWidth - ::oGraph:x1def - ::oGraph:x2def
 
    IF ::aGraphData == Nil
@@ -308,6 +310,7 @@ METHOD SetGraphData( nOffset ) CLASS HPlayer
             AFill( ::aGraphData[i], 0 )
          NEXT
       ENDIF
+      lRecalc := .T.
    ENDIF
 
    iCou := ma_sound_read_pcm_frames( ::pSound4Graph, ::aGraphData, nOffset, nDataLen )
@@ -329,6 +332,9 @@ METHOD SetGraphData( nOffset ) CLASS HPlayer
             ::oGraph:aValues[1,j++] := ::aGraphData[i,::nChnMode]
          ENDIF
       NEXT
+   ENDIF
+   IF lRecalc
+      ::oGraph:CalcMinMax()
    ENDIF
 
    ::oGraph:Refresh()

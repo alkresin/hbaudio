@@ -144,7 +144,7 @@ METHOD Show() CLASS HFileSelect
       SIZE 180, oDlg:nHeight-oPaneHea:nHeight-oPaneTop:nHeight-BOTTOM_HEIGHT-nPaneFHeight ;
       ON SIZE ANCHOR_TOPABS + ANCHOR_BOTTOMABS NO VSCROLL
    oBrw1:aArray := SetBrw1( Self, ::cCurrPath )
-   oBrw1:bEnter := bEnter1
+   oBrw1:bPosChanged := bEnter1
    oBrw1:bColor := ::aColors[CLR_STYLE]
    oBrw1:bColorSel := oBrw1:htbColor := ::aColors[CLR_BOARD]
    oBrw1:tColor := oBrw1:tColorSel := ::aColors[CLR_BTN2]
