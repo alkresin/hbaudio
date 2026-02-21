@@ -20,26 +20,33 @@
 #define CLR_BTN2    6
 
 #define HEA_HEIGHT         28
+#define TIME_WIDTH        100
+#define GRAPH_WIDTH       100
 
 CLASS HPlayer
 
    CLASS VAR pEngine SHARED
 
-   DATA pSound, cFile
-   DATA oBoard, oWnd, oBtnAdd, oBtnPlay, oBtnVol, oSayTime, oTrack
+   DATA pSound, pSound4Graph, cFile
+   DATA oBoard, oWnd, oBtnAdd, oBtnPlay, oBtnVol, oSayTime, oSayGraph, oTrack, oGraph
    DATA aColors                //
    DATA oBrushBtn1, oBrushBtn2
    DATA oStyleNormal, oStylePressed, oStyleOver
+   DATA lTime     INIT .T.
+   DATA lGraph    INIT .F.
    DATA lStopped  INIT .T.
    DATA nPlayPos
    DATA nChannels, nRate, nFramesAll
+   DATA nChnMode  INIT 1
+   DATA aGraphData
    DATA cLastPath
 
-   METHOD New( oPane, oWnd, aColors )
+   METHOD New( oPane, oWnd, aColors, lTime, lGraph )
    METHOD PlayFile( cFile )
    METHOD Play()
    METHOD Stop()
    METHOD Volume()
+   METHOD SetGraphData( nOffset )
    METHOD Message( cText, cTitle )
    METHOD ShowTime( n )
    METHOD KillSound()
@@ -47,8 +54,9 @@ CLASS HPlayer
 
 ENDCLASS
 
-METHOD New( oPane, oWnd, aColors, cLastPath, nVolume ) CLASS HPlayer
+METHOD New( oPane, oWnd, aColors, cLastPath, nVolume, lTime, lGraph ) CLASS HPlayer
 
+   LOCAL nTimeWidth, nGraphWidth
    LOCAL bTrack := {|o|
       IF ::pSound != Nil
          ma_sound_seek_to_pcm_frame( ::pSound, Int( o:Value*::nFramesAll ) )
@@ -80,9 +88,17 @@ METHOD New( oPane, oWnd, aColors, cLastPath, nVolume ) CLASS HPlayer
 
    ::cLastPath := Iif( Empty( cLastPath ), hb_DirBase(), cLastPath )
    ::oWnd := oWnd
-
    ::aColors := Iif( Empty(aColors), ;
       {CLR_BGRAY1,CLR_BGRAY2,CLR_DBROWN,CLR_GBROWN,CLR_BLACK,CLR_WHITE}, aColors )
+
+   IF Valtype( lTime ) == "L" .AND. !lTime
+      ::lTime := .F.
+   ENDIF
+   IF Valtype( lGraph ) == "L" .AND. lGraph
+      ::lGraph := .T.
+   ENDIF
+   nTimeWidth := Iif( ::lTime, TIME_WIDTH, 0 )
+   nGraphWidth := Iif( ::lGraph, GRAPH_WIDTH, 0 )
 
    ::oBrushBtn1 := HBrush():Add( ::aColors[CLR_BTN1] )
    ::oBrushBtn2 := HBrush():Add( ::aColors[CLR_BTN2] )
@@ -90,7 +106,7 @@ METHOD New( oPane, oWnd, aColors, cLastPath, nVolume ) CLASS HPlayer
    ::oStylePressed := HStyle():New( {::aColors[CLR_STYLE]}, 1,, 2, ::aColors[CLR_BTN1] )
    ::oStyleOver := HStyle():New( {::aColors[CLR_STYLE]}, 1 )
 
-   @ 0, 0 BOARD ::oBoard SIZE oPane:nWidth, oPane:nHeight OF oPane BACKCOLOR ::aColors[CLR_BOARD] ;
+   @ 0, 0 BOARD ::oBoard SIZE oPane:nWidth-nGraphWidth, oPane:nHeight OF oPane BACKCOLOR ::aColors[CLR_BOARD] ;
       ON SIZE ANCHOR_LEFTABS+ANCHOR_RIGHTABS
 
    @ 2, 2 DRAWN ::oBtnAdd SIZE 20, 28 ;
@@ -103,15 +119,32 @@ METHOD New( oPane, oWnd, aColors, cLastPath, nVolume ) CLASS HPlayer
       HSTYLES { ::oStyleNormal, ::oStyleOver, ::oStyleNormal }
    ::oBtnPlay:bPaint := bPaintB1
 
-   @ 60, 8 DRAWN TRACK ::oTrack SIZE ::oBoard:nWidth-220, 16 COLOR ::aColors[CLR_BTN2] BACKCOLOR ::aColors[CLR_BOARD] ;
+   @ 60, 8 DRAWN TRACK ::oTrack SIZE ::oBoard:nWidth-92-nTimeWidth, 16 COLOR ::aColors[CLR_BTN2] BACKCOLOR ::aColors[CLR_BOARD] ;
       SLIDER SIZE 20 SLIDER HSTYLE HStyle():New( { 0 }, 1, {8,8,8,8} ) AXIS
 
-   @ ::oBoard:nWidth-150, 2 DRAWN ::oSayTime SIZE 120, 28 COLOR ::aColors[CLR_BTN2] BACKCOLOR ::aColors[CLR_BOARD]
+   IF ::lTime
+      @ ::oTrack:nLeft+::oTrack:nWidth+4, 2 DRAWN ::oSayTime SIZE nTimeWidth, 28 COLOR ::aColors[CLR_BTN2] BACKCOLOR ::aColors[CLR_BOARD]
+      nTimeWidth += 4
+   ENDIF
 
-   @ ::oBoard:nWidth-28, 2 DRAWN ::oBtnVol SIZE 20, 28 COLOR ::aColors[CLR_BTN1] TEXT 'V';
+   @ ::oTrack:nLeft+::oTrack:nWidth+8+nTimeWidth, 2 DRAWN ::oBtnVol SIZE 20, 28 ;
+      COLOR ::aColors[CLR_BTN1] TEXT 'V';
       HSTYLES { ::oStyleNormal, ::oStyleOver, ::oStyleNormal }
    //::oBtnVol:cTooltip := "Volume"
    ::oBtnVol:bClick := {|| ::Volume() }
+
+   IF ::lGraph
+      @ ::oBoard:nWidth, 0 GRAPH ::oGraph DATA Nil OF oPane SIZE nGraphWidth, ::oBoard:nHeight COLOR ::aColors[CLR_BTN2] BACKCOLOR ::aColors[CLR_BOARD]
+      ::oGraph:nType := 1
+      ::oGraph:nLineType := 2
+      ::oGraph:nPointSize := 2
+      ::oGraph:lGridY := ::oGraph:lGridX := .F.
+      ::oGraph:x1Def := ::oGraph:x2Def := 16
+      ::oGraph:y1Def := ::oGraph:y2Def := 0
+      ::oGraph:yMaxSet := 0.9
+      ::oGraph:yMinSet := -0.9
+      ::oGraph:aColors := { 65280, 255 }
+   ENDIF
 
    ::oTrack:Value := 0
    ::oTrack:bEndDrag := bTrack
@@ -148,11 +181,15 @@ METHOD PlayFile( cFile ) CLASS HPlayer
          ::cFile := Nil
          RETURN Nil
       ENDIF
+      IF ::lGraph
+         ::pSound4Graph := ma_Sound_Init( ::pEngine, ::cFile, .T. )
+      ENDIF
       ::cLastPath := hb_fnameDir( ::cFile )
 
       ::nChannels := ma_sound_get_channels( ::pSound )
       ::nRate := ma_engine_get_sample_rate( ::pEngine )
       ::nFramesAll := ma_sound_get_length_in_pcm_frames( ::pSound )
+      ::aGraphData := Nil
 
       SET TIMER oTimer OF ::oBoard VALUE 10 ACTION {||::Play()} ONCE
    ENDIF
@@ -184,14 +221,12 @@ METHOD Play() CLASS HPlayer
    DO WHILE ::pSound != Nil .AND. ma_sound_is_playing( ::pSound )
       IF Seconds() - nSec > 0.2
          nSec := Seconds()
-         IF Abs( ( ( nPos := ma_sound_get_cursor_in_pcm_frames( ::pSound ) ) - ;
-            ::nPlayPos ) / ::nFramesAll ) > 0.005
-            ::nPlayPos := nPos
-
-            ::oTrack:Value := ::nPlayPos / ::nFramesAll
-            ::oTrack:Refresh()
-            ::ShowTime( ::nPlayPos )
-
+         ::nPlayPos := ma_sound_get_cursor_in_pcm_frames( ::pSound )
+         ::oTrack:Value := ::nPlayPos / ::nFramesAll
+         ::oTrack:Refresh()
+         ::ShowTime( ::nPlayPos )
+         IF ::lGraph
+            ::SetGraphData( ::nPlayPos )
          ENDIF
       ENDIF
       hwg_ProcessMessage()
@@ -219,12 +254,13 @@ METHOD ShowTime( n ) CLASS HPlayer
 
    LOCAL cTime
 
-   n := Int( n/::nRate )
-   cTime := Ltrim(Str(Int(n/60))) + ":" + PAdl(Ltrim(Str(Int(n%60))),2,'0') + "/"
-   n := Int( ::nFramesAll/::nRate )
-   cTime += Ltrim(Str(Int(n/60))) + ":" + PAdl(Ltrim(Str(Int(n%60))),2,'0')
-   ::oSayTime:SetText( cTime )
-
+   IF ::lTime
+      n := Int( n/::nRate )
+      cTime := Ltrim(Str(Int(n/60))) + ":" + PAdl(Ltrim(Str(Int(n%60))),2,'0') + "/"
+      n := Int( ::nFramesAll/::nRate )
+      cTime += Ltrim(Str(Int(n/60))) + ":" + PAdl(Ltrim(Str(Int(n%60))),2,'0')
+      ::oSayTime:SetText( cTime )
+   ENDIF
    RETURN Nil
 
 METHOD Volume() CLASS HPlayer
@@ -254,6 +290,48 @@ METHOD Volume() CLASS HPlayer
          ON CLICK {||hwg_EndDialog()}
 
    ACTIVATE DIALOG oDlg
+
+   RETURN Nil
+
+METHOD SetGraphData( nOffset ) CLASS HPlayer
+
+   LOCAL i, iCou, j := 1
+   LOCAL nDataLen := ::oGraph:nWidth - ::oGraph:x1def - ::oGraph:x2def
+
+   IF ::aGraphData == Nil
+      IF ::nChannels == 1
+         ::aGraphData := Array( nDataLen )
+         AFill( ::aGraphData, 0 )
+      ELSE
+         ::aGraphData := Array( nDataLen, ::nChannels )
+         FOR i := 1 TO nDataLen
+            AFill( ::aGraphData[i], 0 )
+         NEXT
+      ENDIF
+   ENDIF
+
+   iCou := ma_sound_read_pcm_frames( ::pSound4Graph, ::aGraphData, nOffset, nDataLen )
+   IF Empty( ::oGraph:aValues ) .OR. Len( ::oGraph:aValues ) < ::nChannels
+      ::oGraph:aValues := Array( ::nChannels, nDataLen )
+   ENDIF
+
+   IF ::nChannels == 1
+      FOR i := 1 TO nDataLen
+         ::oGraph:aValues[1,j++] := ::aGraphData[i]
+      NEXT
+   ELSE
+      ::oGraph:nGraphs := Iif( ::nChnMode == 3, 2, 1 )
+      FOR i := 1 TO nDataLen
+         IF ::nChnMode == 3
+            ::oGraph:aValues[1,j] := ::aGraphData[i,1]
+            ::oGraph:aValues[2,j++] := ::aGraphData[i,2]
+         ELSE
+            ::oGraph:aValues[1,j++] := ::aGraphData[i,::nChnMode]
+         ENDIF
+      NEXT
+   ENDIF
+
+   ::oGraph:Refresh()
 
    RETURN Nil
 
@@ -315,6 +393,10 @@ METHOD KillSound() CLASS HPlayer
       ENDIF
       ma_sound_uninit( ::pSound )
       ::pSound := Nil
+      IF !Empty( ::pSound4Graph )
+         ma_sound_uninit( ::pSound4Graph )
+         ::pSound4Graph := Nil
+      ENDIF
    ENDIF
 
    RETURN .T.

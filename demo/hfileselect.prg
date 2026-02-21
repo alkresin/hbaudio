@@ -25,8 +25,11 @@
 CLASS HFileSelect
 
    CLASS VAR cCurrPath SHARED
+   CLASS VAR aRecent SHARED  INIT {}
    DATA oDlg
    DATA lToSave   INIT .F.
+   DATA lRecent   INIT .T.
+   DATA cFileHis
    DATA aColors
    DATA aFilters
    DATA oStyleNormal, oStylePressed, oStyleOver
@@ -59,13 +62,17 @@ METHOD Show() CLASS HFileSelect
    LOCAL oDlg, oPaneHea, oPaneTop, oPaneF, oBrw1, oBrw2, oCombo, oEdit
    LOCAL oFont := HWindow():Getmain():oFont, cRes := "", nPaneFHeight := 4
    LOCAL bEnter1 := {||
-      LOCAL cPath := "", i
-      cPath := oBrw1:aArray[oBrw1:nCurrent,2]
-      ::cCurrPath := cPath
-      IF !( Right( ::cCurrPath,1 ) $ "/\" )
-         ::cCurrPath += hb_ps()
+      LOCAL xPath := "", i
+      xPath := oBrw1:aArray[oBrw1:nCurrent,2]
+      IF Valtype( xPath ) == "A"
+         oBrw2:aArray := SetBrw3( Self, xPath )
+      ELSE
+         ::cCurrPath := xPath
+         IF !( Right( ::cCurrPath,1 ) $ "/\" )
+            ::cCurrPath += hb_ps()
+         ENDIF
+         oBrw2:aArray := SetBrw2( Self, oCombo:Value )
       ENDIF
-      oBrw2:aArray := SetBrw2( Self, oCombo:Value )
       oBrw2:Top()
       oBrw2:Refresh()
 
@@ -84,8 +91,13 @@ METHOD Show() CLASS HFileSelect
       ELSE
          IF ::lToSave
             cRes := ::cCurrPath + oEdit:GetText()
+         ELSEIF oBrw2:aArray[oBrw2:nCurrent,5] == "@"
+            cRes := oBrw2:aArray[oBrw2:nCurrent,6]
          ELSE
             cRes := ::cCurrPath + oBrw2:aArray[oBrw2:nCurrent,1]
+            IF ::lRecent
+               hb_AIns( ::aRecent, 1, cRes, .T. )
+            ENDIF
          ENDIF
          hwg_EndDialog()
       ENDIF
@@ -103,7 +115,10 @@ METHOD Show() CLASS HFileSelect
    }
 
    IF ::lToSave
+      ::lRecent := .F.
       nPaneFHeight := 30
+   ELSEIF Empty(::aRecent) .AND. !Empty(::cFileHis)
+      ::aRecent := LoadHis( ::cFileHis )
    ENDIF
 
    IF Empty( ::cCurrPath )
@@ -220,10 +235,14 @@ STATIC FUNCTION SetBrw1( o, cPath )
    NEXT
 
    o:nPathPos := 1
+   IF o:lRecent
+      hb_AIns( arr2, 1 , {"== Recent",o:aRecent}, .T. )
+      o:nPathPos ++
+   ENDIF
 #ifdef __PLATFORM__UNIX
    hb_AIns( arr2, 1 , {"== Home",hb_getenv("HOME")}, .T. )
    hb_AIns( arr2, 1 , {"== Root","/"}, .T. )
-   o:nPathPos := 3
+   o:nPathPos += 2
 #else
 #endif
 
@@ -231,7 +250,7 @@ STATIC FUNCTION SetBrw1( o, cPath )
 
 STATIC FUNCTION SetBrw2( o, nItem )
 
-   LOCAL aDir , i, j, n1 := 0, af, lf
+   LOCAL aDir, i, j, n1 := 0, af, lf
 
    aDir := Directory( o:cCurrPath+"*", "HSD" )
    af := hb_ATokens( o:aFilters[nItem,2], ';' )
@@ -275,9 +294,39 @@ STATIC FUNCTION SetBrw2( o, nItem )
 
    RETURN aDir
 
+STATIC FUNCTION SetBrw3( o, arr )
+
+   LOCAL aDir := Array( Len(arr), 6 ), i
+
+   FOR i := 1 TO Len( aDir )
+      aDir[i,1] := hb_fnameNameExt( arr[i] )
+      aDir[i,2] := 0
+      aDir[i,5] := "@"
+      aDir[i,6] := arr[i]
+   NEXT
+
+   RETURN aDir
+
+STATIC FUNCTION LoadHis( cFile )
+
+   LOCAL arr, cBuf := MemoRead( cFile ), i
+
+   IF Empty( cBuf )
+      RETURN {}
+   ENDIF
+   IF Chr(13) $ cBuf
+      cBuf := StrTran( cBuf, Chr(13), "" )
+   ENDIF
+   arr := hb_aTokens( cBuf, Chr(10) )
+   FOR i := Len( arr ) TO 1 STEP -1
+      hb_ADel( arr, i, .T. )
+   NEXT
+
+   RETURN arr
+
 STATIC FUNCTION FSize( n )
 
-   RETURN Iif( n<=999999, PAdl(Ltrim(Str(n)),6), ;
+   RETURN Iif( n==0, "", Iif( n<=999999, PAdl(Ltrim(Str(n)),6), ;
       Iif( n<10238976,PAdl(Left(Ltrim(Str(Round(n/1024,1))),5)+"K",6), ;
       Iif( n<10484711424, PAdl(Left(Ltrim(Str(Round(n/1048576,1))),5)+"M",6), ;
-      PAdl(Left(Ltrim(Str(Round(n/1073741824,1))),5)+"G",6) ) ) )
+      PAdl(Left(Ltrim(Str(Round(n/1073741824,1))),5)+"G",6) ) ) ) )

@@ -19,7 +19,7 @@
 STATIC oPlayer
 STATIC arrColors := { {CLR_BGRAY1,CLR_BGRAY2,CLR_DBROWN,CLR_GBROWN,CLR_BLACK,CLR_WHITE}, ;
    {0x797979,0x555555,0x222222,0x353535,CLR_BLACK,CLR_WHITE} }
-STATIC nTheme := 1, cLastPath, oFontMain, nVolume := 0.5
+STATIC nTheme := 1, cLastPath, oFontMain, nVolume := 0.5, lTime := .T., lGraph := .F.
 
 FUNCTION Main( cFile )
 
@@ -43,7 +43,7 @@ FUNCTION Main( cFile )
    @ 0, HEA_HEIGHT PANEL oPaneTop SIZE oMain:nWidth, PL_HEIGHT ;
       ON SIZE ANCHOR_LEFTABS + ANCHOR_RIGHTABS
 
-   oPlayer := HPlayer():New( oPaneTop, oPaneHea, arrColors[nTheme], cLastPath, nVolume )
+   oPlayer := HPlayer():New( oPaneTop, oPaneHea, arrColors[nTheme], cLastPath, nVolume, lTime, lGraph )
 
    SET KEY 0, VK_SPACE TO Iif( oPlayer:lStopped, oPlayer:Play(), oPlayer:Stop() )
 
@@ -80,6 +80,12 @@ STATIC FUNCTION ReadIni()
                   IF nTheme <= 0 .OR. nTheme > Len( arrColors )
                      nTheme := 1
                   ENDIF
+               ENDIF
+               IF hb_hHaskey( aSect, cTemp := "showtime" ) .AND. !Empty( cTemp := aSect[ cTemp ] )
+                  lTime := ( Lower(cTemp) == "on" )
+               ENDIF
+               IF hb_hHaskey( aSect, cTemp := "showgraph" ) .AND. !Empty( cTemp := aSect[ cTemp ] )
+                  lGraph := ( Lower(cTemp) == "on" )
                ENDIF
             ENDIF
          ENDIF
