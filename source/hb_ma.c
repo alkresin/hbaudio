@@ -83,6 +83,8 @@ HB_FUNC( MA_ENGINE_GET_VOLUME ) {
    hb_retnd( ma_engine_get_volume( pEngine ) );
 }
 
+/* ma_Sound_Init( pEngine, cFile, lToDecodeOnly )
+ */
 HB_FUNC( MA_SOUND_INIT ) {
 
    ma_engine * pEngine = (ma_engine*) hb_parptr( 1 );
@@ -94,7 +96,7 @@ HB_FUNC( MA_SOUND_INIT ) {
 
    soundConfig = ma_sound_config_init();
    soundConfig.pFilePath = hb_parc(2);
-   soundConfig.flags = MA_SOUND_FLAG_STREAM;
+   soundConfig.flags = (HB_ISLOG(3) && hb_parl(3))? MA_SOUND_FLAG_DECODE : MA_SOUND_FLAG_STREAM;
 
    result = ma_sound_init_ex( pEngine, &soundConfig, pSound );
    if(result != MA_SUCCESS) {
@@ -139,7 +141,8 @@ HB_FUNC( MA_SOUND_GET_CHANNELS ) {
    ma_sound * pSound = (ma_sound*) hb_parptr( 1 );
    ma_uint32 channels;
 
-   ma_sound_get_data_format( pSound, NULL, &channels, NULL, NULL, 0 );
+   ma_data_source_get_data_format( ma_sound_get_data_source(pSound),
+      NULL, &channels, NULL, NULL, 0 );
    hb_retni( channels );
 }
 
@@ -162,7 +165,7 @@ HB_FUNC( MA_SOUND_GET_LENGTH_IN_PCM_FRAMES ) {
    ma_sound * pSound = (ma_sound*) hb_parptr( 1 );
    ma_uint64 lengthInFrames;
 
-   ma_sound_get_length_in_pcm_frames( pSound, &lengthInFrames );
+   ma_data_source_get_length_in_pcm_frames( ma_sound_get_data_source(pSound), &lengthInFrames );
    hb_retnl( (long) lengthInFrames );
 }
 
@@ -171,7 +174,7 @@ HB_FUNC( MA_SOUND_GET_CURSOR_IN_PCM_FRAMES ) {
    ma_sound * pSound = (ma_sound*) hb_parptr( 1 );
    ma_uint64 cursor;
 
-   ma_sound_get_cursor_in_pcm_frames( pSound, &cursor );
+   ma_data_source_get_cursor_in_pcm_frames( ma_sound_get_data_source(pSound), &cursor );
    hb_retnl( (long) cursor );
 }
 
@@ -179,7 +182,7 @@ HB_FUNC( MA_SOUND_SEEK_TO_PCM_FRAME ) {
 
    ma_sound * pSound = (ma_sound*) hb_parptr( 1 );
 
-   ma_sound_seek_to_pcm_frame( pSound, hb_parnl( 2 ) );
+   ma_data_source_seek_to_pcm_frame( ma_sound_get_data_source(pSound), hb_parnl( 2 ) );
 }
 
 /* ma_sound_read_pcm_frames( pSound, pArrOut, nFrameStart, nFrameCount )
@@ -190,43 +193,68 @@ HB_FUNC( MA_SOUND_READ_PCM_FRAMES ) {
    ma_uint64 framesToRead = hb_parnl( 4 ), i;
    ma_uint32 channels = 1, j;
    ma_uint64 nRead = 0;
-   float* pBuffer, * pOut;
+   //ma_result result;
+   //float* pBuffer;
+   float * pOut;
    PHB_ITEM pArr, pSubArr;
    HB_TYPE type;
    int bArr;
+   long int lArrLen;
 
    pArr = hb_param( 2, HB_IT_ARRAY );
    type = hb_arrayGetType( pArr, 1 );
    bArr = ( type & HB_IT_ARRAY );
-   //c_writelog( NULL, "read_frames-1\n" );
+   lArrLen = hb_arrayLen( pArr );
+
+   ma_data_source* pDataSource = ma_sound_get_data_source( pSound );
+   if( !HB_ISNIL(3) )
+      ma_data_source_seek_to_pcm_frame( pDataSource, hb_parnl( 3 ) );
+
+/*
    ma_sound_get_data_format( pSound, NULL, &channels, NULL, NULL, 0 );
    pBuffer = malloc( framesToRead * channels * sizeof(float) );
+*/
+   ma_format format;
+   ma_uint32 sampleRate;
 
-   if( !HB_ISNIL(3) )
-      ma_sound_seek_to_pcm_frame( pSound, hb_parnl( 3 ) );
+   ma_data_source_get_data_format( pDataSource, &format, &channels, &sampleRate, NULL, 0 );
 
-   ma_data_source_read_pcm_frames( ma_sound_get_data_source(pSound),
-      pBuffer, framesToRead, &nRead );
+   ma_uint32 bytesPerFrame = ma_get_bytes_per_frame( format, channels );
+   size_t bufferSize = (size_t)( framesToRead * bytesPerFrame );
+   void* pBuffer = malloc( bufferSize );
+
+   ma_data_source_read_pcm_frames( pDataSource, pBuffer, framesToRead, &nRead );
+   //c_writelog( NULL, "read_frames-1 %lu %d %d\n", hb_parnl(3), result, nRead );
+
+   float globalMin = 1000.0f;
+   float globalMax = -1000.0f;
 
    if( nRead ) {
       //if( channels > 1 )
       //   nRead /= channels;
-      pOut = pBuffer;
-      for( i = 1; i <= nRead; i += 1 )
+      pOut = (float*)pBuffer;
+      for( i = 1; i <= nRead && i+1 <= lArrLen; i += 1 )
       {
          if( bArr )
          {
             pSubArr = hb_arrayGetItemPtr( pArr, i+1 );
-            for( j = 1; j <= channels; j++, pOut++ )
+            for( j = 1; j <= channels; j++, pOut++ ) {
+               if (*pOut < globalMin) globalMin = *pOut;
+               if (*pOut > globalMax) globalMax = *pOut;
                hb_arraySetND( pSubArr, j, (double) *pOut );
+            }
          }
          else
          {
+            if (*pOut < globalMin) globalMin = *pOut;
+            if (*pOut > globalMax) globalMax = *pOut;
             hb_arraySetND( pArr, i+1, (double) *pOut );
             pOut ++;
          }
       }
    }
+
+   //c_writelog( NULL, "read_frames-1 %lu %d %d %f %f\n", hb_parnl(3), result, nRead, globalMin, globalMax );
 
    free( pBuffer );
    hb_retnl( nRead );
@@ -246,40 +274,40 @@ HB_FUNC( MA_GETRANGE ) {
    ma_uint32 channels;
    ma_uint32 sampleRate;
 
-   // Получаем информацию о формате данных
    result = ma_data_source_get_data_format(pDataSource, &format, &channels, &sampleRate, NULL, 0);
    if (result != MA_SUCCESS) {
        hb_retni( result );
        return;
    }
 
-   // Перемещаемся в начало
-   result = ma_data_source_seek_to_pcm_frame(pDataSource, 0);
+   // Go to the beginning
+   result = ma_data_source_seek_to_pcm_frame( pDataSource, 0 );
    if (result != MA_SUCCESS) {
        hb_retni( result );
-       c_writelog( NULL, "getrange-3\n" );
+       c_writelog( NULL, "getrange-1a %d\n", result );
        return;
    }
 
-   // Определяем размер буфера (например, 4096 фреймов)
+   // Set the buffer size (4096 frames)
    ma_uint64 framesPerBatch = 4096;
-   ma_uint32 bytesPerFrame = ma_get_bytes_per_frame(format, channels);
-   size_t bufferSize = (size_t)(framesPerBatch * bytesPerFrame);
+   ma_uint32 bytesPerFrame = ma_get_bytes_per_frame( format, channels );
+   size_t bufferSize = (size_t)( framesPerBatch * bytesPerFrame );
    void* buffer = malloc(bufferSize);
    if (buffer == NULL) {
        hb_retni( MA_OUT_OF_MEMORY );
        return;
    }
 
-   // Инициализация переменных для поиска
-   float globalMin = 0.0f;
-   float globalMax = 0.0f;
-   int firstSample = 1;
+   float globalMin = 1000.0f;
+   float globalMax = -1000.0f;
 
-   // Читаем и анализируем данные порциями
+   // Read and analyse the data
    ma_uint64 framesRead;
    do {
-        result = ma_data_source_read_pcm_frames(pDataSource, buffer, framesPerBatch, &framesRead);
+        ma_uint64 cursor;
+        ma_data_source_get_cursor_in_pcm_frames( pDataSource, &cursor );
+        result = ma_data_source_read_pcm_frames( pDataSource, buffer, framesPerBatch, &framesRead );
+        //c_writelog( NULL, "gr-1 %lu %d %d %f %f \n", cursor, result, framesRead, globalMin, globalMax );
         if (result == MA_BUSY ) {
            ma_sleep(1);
            continue;
@@ -291,20 +319,16 @@ HB_FUNC( MA_GETRANGE ) {
         }
 
         if (framesRead > 0) {
-            // Анализ в зависимости от формата
+            // Analyse due to format
             switch (format) {
                 case ma_format_f32: {
                     float* samples = (float*)buffer;
-                    for (ma_uint64 i = 0; i < framesRead * channels; i++) {
-                        float sample = samples[i];
-                        if (firstSample) {
-                            globalMin = sample;
-                            globalMax = sample;
-                            firstSample = 0;
-                        } else {
-                            if (sample < globalMin) globalMin = sample;
-                            if (sample > globalMax) globalMax = sample;
-                        }
+                    //c_writelog( NULL, "getrange-ma_format_f32\n" );
+                    for (ma_uint64 i = 0; i < framesRead * channels; i++, samples++) {
+                        float sample = *samples;
+                        if (sample < globalMin) globalMin = sample;
+                        if (sample > globalMax) globalMax = sample;
+                        //c_writelog( NULL, "   %f\n", sample );
                     }
                     break;
                 }
@@ -313,14 +337,8 @@ HB_FUNC( MA_GETRANGE ) {
                     ma_int16* samples = (ma_int16*)buffer;
                     for (ma_uint64 i = 0; i < framesRead * channels; i++) {
                         float sample = samples[i] / 32768.0f;
-                        if (firstSample) {
-                            globalMin = sample;
-                            globalMax = sample;
-                            firstSample = 0;
-                        } else {
-                            if (sample < globalMin) globalMin = sample;
-                            if (sample > globalMax) globalMax = sample;
-                        }
+                        if (sample < globalMin) globalMin = sample;
+                        if (sample > globalMax) globalMax = sample;
                     }
                     break;
                 }
@@ -334,14 +352,8 @@ HB_FUNC( MA_GETRANGE ) {
                         float sampleFloat = sample / 8388608.0f; // 2^23
                         bytes += 3;
 
-                        if (firstSample) {
-                            globalMin = sampleFloat;
-                            globalMax = sampleFloat;
-                            firstSample = 0;
-                        } else {
-                            if (sampleFloat < globalMin) globalMin = sampleFloat;
-                            if (sampleFloat > globalMax) globalMax = sampleFloat;
-                        }
+                        if (sampleFloat < globalMin) globalMin = sampleFloat;
+                        if (sampleFloat > globalMax) globalMax = sampleFloat;
                     }
                     break;
                 }
@@ -350,14 +362,8 @@ HB_FUNC( MA_GETRANGE ) {
                     ma_int32* samples = (ma_int32*)buffer;
                     for (ma_uint64 i = 0; i < framesRead * channels; i++) {
                         float sample = samples[i] / 2147483648.0f; // 2^31
-                        if (firstSample) {
-                            globalMin = sample;
-                            globalMax = sample;
-                            firstSample = 0;
-                        } else {
-                            if (sample < globalMin) globalMin = sample;
-                            if (sample > globalMax) globalMax = sample;
-                        }
+                        if (sample < globalMin) globalMin = sample;
+                        if (sample > globalMax) globalMax = sample;
                     }
                     break;
                 }
@@ -366,14 +372,8 @@ HB_FUNC( MA_GETRANGE ) {
                     ma_uint8* samples = (ma_uint8*)buffer;
                     for (ma_uint64 i = 0; i < framesRead * channels; i++) {
                         float sample = (samples[i] / 128.0f) - 1.0f;
-                        if (firstSample) {
-                            globalMin = sample;
-                            globalMax = sample;
-                            firstSample = 0;
-                        } else {
-                            if (sample < globalMin) globalMin = sample;
-                            if (sample > globalMax) globalMax = sample;
-                        }
+                        if (sample < globalMin) globalMin = sample;
+                        if (sample > globalMax) globalMax = sample;
                     }
                     break;
                 }
@@ -389,6 +389,12 @@ HB_FUNC( MA_GETRANGE ) {
 
    hb_stornd( (double) globalMax, 2 );
    hb_stornd( (double) globalMin, 3 );
+
+   result = ma_data_source_seek_to_pcm_frame(pDataSource, 0);
+   if (result != MA_SUCCESS) {
+       hb_retni( result );
+       c_writelog( NULL, "getrange-2a %d\n", result );
+   }
 
    free(buffer);
    hb_retni( MA_SUCCESS );
