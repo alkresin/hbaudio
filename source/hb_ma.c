@@ -9,6 +9,12 @@
 #include "hbstack.h"
 #include "hbapiitm.h"
 
+typedef struct
+{
+    ma_encoder *pEncoder;
+    ma_device  *pDevice;
+} udevice;
+
 void c_writelog( const char * sFile, const char * sTraceMsg, ... )
 {
    FILE *hFile;
@@ -46,7 +52,8 @@ HB_FUNC( MA_ENGINE_INIT ) {
    config.listenerCount = 1;
 
    result = ma_engine_init( &config, pEngine );
-   if(result != MA_SUCCESS) {
+   if( result != MA_SUCCESS ) {
+      hb_xfree( pEngine );
       hb_ret();
    } else {
       hb_retptr( (void*) pEngine );
@@ -100,6 +107,7 @@ HB_FUNC( MA_SOUND_INIT ) {
 
    result = ma_sound_init_ex( pEngine, &soundConfig, pSound );
    if(result != MA_SUCCESS) {
+      hb_xfree( pSound );
       hb_ret();
    } else {
       hb_retptr( (void*) pSound );
@@ -119,7 +127,7 @@ HB_FUNC( MA_SOUND_START ) {
 
    ma_sound * pSound = (ma_sound*) hb_parptr( 1 );
 
-   ma_sound_start( pSound );
+   hb_retni( ma_sound_start( pSound ) );
 }
 
 HB_FUNC( MA_SOUND_IS_PLAYING ) {
@@ -398,6 +406,91 @@ HB_FUNC( MA_GETRANGE ) {
 
    free(buffer);
    hb_retni( MA_SUCCESS );
+
+}
+
+// Callback функция, вызываемая при получении данных с микрофона
+void data_capture_callback( ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount )
+{
+    // Записываем полученные данные в encoder (который сохраняет в файл)
+    ma_encoder_write_pcm_frames( (ma_encoder*)pDevice->pUserData, pInput, frameCount, NULL );
+
+    (void)pOutput; // Не используется в capture режиме
+}
+
+/* ma_capture_init( cFile, nSampleRate, nChannels )
+ */
+HB_FUNC( MA_CAPTURE_INIT ) {
+
+   const char* filename = HB_ISCHAR(1)? hb_parc( 1 ) : "out.wav";
+   ma_uint32 sampleRate = HB_ISNUM(2)? hb_parni( 2 ) : 44100;
+   ma_uint32 channels = HB_ISNUM(3)? hb_parni( 3 ) : 1;
+   ma_result result;
+   ma_device_config deviceConfig;
+   ma_device * pDevice;
+   ma_encoder_config encoderConfig;
+   ma_encoder *pEncoder;
+   udevice * uDevice;
+
+   // Настраиваем encoder для сохранения в WAV файл
+   encoderConfig = ma_encoder_config_init( ma_encoding_format_wav, ma_format_s16, channels, sampleRate );
+   pEncoder = (ma_encoder *) hb_xgrab( sizeof(ma_encoder) );
+   result = ma_encoder_init_file(filename, &encoderConfig, pEncoder);
+   if (result != MA_SUCCESS) {
+      hb_xfree( pEncoder );
+      hb_ret();
+      return;
+   }
+
+   // Настраиваем устройство захвата
+   deviceConfig = ma_device_config_init( ma_device_type_capture );
+   deviceConfig.capture.format   = ma_format_s16;
+   deviceConfig.capture.channels = channels;
+   deviceConfig.sampleRate       = sampleRate;
+   deviceConfig.pUserData        = pEncoder;
+   deviceConfig.dataCallback     = data_capture_callback;
+
+   // Инициализируем устройство
+   pDevice = (ma_device *) hb_xgrab( sizeof(ma_device) );
+   result = ma_device_init( NULL, &deviceConfig, pDevice );
+   if (result != MA_SUCCESS) {
+      hb_xfree( pDevice );
+      ma_encoder_uninit( pEncoder );
+      hb_xfree( pEncoder );
+      hb_ret();
+      return;
+   }
+
+   uDevice = (udevice *) hb_xgrab( sizeof(udevice) );
+   uDevice->pEncoder = pEncoder;
+   uDevice->pDevice = pDevice;
+   hb_retptr( (void*) uDevice );
+}
+
+HB_FUNC( MA_CAPTURE_UNINIT ) {
+
+   udevice * uDevice = (udevice*) hb_parptr( 1 );
+
+   ma_encoder_uninit( uDevice->pEncoder );
+   ma_device_uninit( uDevice->pDevice );
+   hb_xfree( uDevice->pEncoder );
+   hb_xfree( uDevice->pDevice );
+   hb_xfree( uDevice );
+}
+
+HB_FUNC( MA_CAPTURE_START ) {
+
+   udevice * uDevice = (udevice*) hb_parptr( 1 );
+
+   hb_retni( ma_device_start( uDevice->pDevice ) );
+
+}
+
+HB_FUNC( MA_CAPTURE_STOP ) {
+
+   udevice * uDevice = (udevice*) hb_parptr( 1 );
+
+   hb_retni( ma_device_stop( uDevice->pDevice ) );
 
 }
 
