@@ -3,7 +3,7 @@
 
 FUNCTION Main( cFile )
 
-   LOCAL pDev
+   LOCAL pDev, nSec
 
    IF cFile == Nil
       cFile := "out.wav"
@@ -14,9 +14,23 @@ FUNCTION Main( cFile )
       RETURN Nil
    ENDIF
 
+   ? "Begins after 3 seconds... "
+   Inkey( 1 )
+   ?? "2... "
+   Inkey( 1 )
+   ?? "1... "
+
    ? "Start!"
    ma_capture_start( pDev )
-   ma_sleep( 5000 )
+   nSec := Seconds()
+
+   DO WHILE Seconds() - nSec < 30
+      IF !Empty( Inkey() )
+         EXIT
+      ENDIF
+      ma_sleep( 100 )
+   ENDDO
+
    ma_capture_stop( pDev )
    ? "End"
    ma_capture_uninit( pDev )
