@@ -27,6 +27,9 @@
 
 #define HEA_HEIGHT         28
 
+STATIC aRates := { "8000", "16000", "24000", "32000", "44100", "48000", ;
+   "88200", "96000", "176400", "192000", "352800", "384000" }
+
 CLASS HRecorder
 
    DATA oBoard, oBtnAdd, oBtnRec, oSayState
@@ -94,7 +97,7 @@ METHOD New( oPane, aColors ) CLASS HRecorder
 
 METHOD RecFile() CLASS HRecorder
 
-   LOCAL oDlg, oPaneHea, oEdit, oFont := HWindow():Getmain():oFont
+   LOCAL oDlg, oPaneHea, oEdit, oCombo, oUpd, oFont := HWindow():Getmain():oFont
    LOCAL cFile := "out.wav"
    LOCAL bFile := {||
       cFile := HFileSelect():Save( { {"Wav files","*.wav"} }, ::cLastPath, ::aColors )
@@ -106,7 +109,7 @@ METHOD RecFile() CLASS HRecorder
       RETURN .T.
    }
    LOCAL bOk := {||
-      IF Empty( ::pDevice := ma_capture_init( cFile, 44100, 2 ) )
+      IF Empty( ::pDevice := ma_capture_init( cFile, Val(aRates[oCombo:Value]), oUpd:Value ) )
          ::Message( "Capture init failed", "Error" )
          hwg_EndDialog()
          RETURN .F.
@@ -122,7 +125,7 @@ METHOD RecFile() CLASS HRecorder
    ENDIF
 
    INIT DIALOG oDlg TITLE "" BACKCOLOR ::aColors[CLR_DLG] FONT oFont ;
-      AT 300, 58 SIZE 280, 200 STYLE WND_NOTITLE
+      AT 300, 58 SIZE 280, 240 STYLE WND_NOTITLE
 
    ADD HEADER PANEL oPaneHea HEIGHT HEA_HEIGHT TEXTCOLOR ::aColors[CLR_BTN2] BACKCOLOR ::aColors[CLR_HEAD] ;
       FONT oFont TEXT "Add record" COORS 20 BTN_CLOSE
@@ -132,6 +135,10 @@ METHOD RecFile() CLASS HRecorder
    @ 220,40 OWNERBUTTON SIZE 40,26 TEXT "..." COLOR ::aColors[CLR_BTN1] ;
          HSTYLES ::oStyleNormal, ::oStylePressed, ::oStyleOver ;
          ON CLICK bFile
+
+   @ 20, 80 COMBOBOX oCombo ITEMS aRates SIZE 140, 26 INIT 1 DISPLAYCOUNT 3
+
+   @ 20, 120 UPDOWN oUpd INIT 1 RANGE 1,2 SIZE 50,28 STYLE WS_BORDER
 
    @ 80,oDlg:nHeight-40 OWNERBUTTON SIZE 100,30 TEXT "Ok" COLOR ::aColors[CLR_BTN1] ;
          HSTYLES ::oStyleNormal, ::oStylePressed, ::oStyleOver ;
