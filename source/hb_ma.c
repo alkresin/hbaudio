@@ -1,5 +1,8 @@
 /*
- * Harbour wrappers for miniaudio
+ * HbAudio - Harbour wrappers for miniaudio
+ *
+ * Copyright 2026 Alexander S.Kresin <alex@kresin.ru>
+ * www - http://www.kresin.ru
  */
 
 #define MINIAUDIO_IMPLEMENTATION

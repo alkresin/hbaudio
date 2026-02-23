@@ -1,4 +1,11 @@
 /*
+ * sample_2.prg - A sample, which captures the sound from a microphone
+ *    and saves it in an audio file
+ *
+ * HbAudio - Harbour wrappers for miniaudio
+ *
+ * Copyright 2026 Alexander S.Kresin <alex@kresin.ru>
+ * www - http://www.kresin.ru
  */
 
 FUNCTION Main( cFile )

@@ -1,5 +1,11 @@
 /*
- * HFileSelect class - file selection dialog implementation
+ * Audio player demo program, HFileSelect class - file selection dialog implementation
+ * Harbour + HwGUI + Miniaudio
+ *
+ * HbAudio - Harbour wrappers for miniaudio
+ *
+ * Copyright 2026 Alexander S.Kresin <alex@kresin.ru>
+ * www - http://www.kresin.ru
  */
 
 #include "hbclass.ch"
@@ -61,6 +67,7 @@ METHOD Show() CLASS HFileSelect
 
    LOCAL oDlg, oPaneHea, oPaneTop, oPaneF, oBrw1, oBrw2, oCombo, oEdit
    LOCAL oFont := HWindow():Getmain():oFont, cRes := "", nPaneFHeight := 4
+   LOCAL lSelect := .F.
    LOCAL bEnter1 := {||
       LOCAL xPath := "", i
       xPath := oBrw1:aArray[oBrw1:nCurrent,2]
@@ -79,29 +86,38 @@ METHOD Show() CLASS HFileSelect
       RETURN .T.
    }
    LOCAL bEnter2 := {||
-      IF 'D' $ oBrw2:aArray[oBrw2:nCurrent,5]
-         ::cCurrPath += oBrw2:aArray[oBrw2:nCurrent,1] + hb_ps()
-         oBrw2:aArray := SetBrw2( Self, oCombo:Value )
-         oBrw2:Top()
-         oBrw2:Refresh()
-         oBrw1:aArray := SetBrw1( Self, ::cCurrPath )
-         //oBrw1:Top()
-         oBrw1:nCurrent := oBrw1:rowPos := ::nPathPos
-         oBrw1:Refresh()
-      ELSE
-         IF ::lToSave
-            cRes := ::cCurrPath + oEdit:GetText()
-         ELSEIF oBrw2:aArray[oBrw2:nCurrent,5] == "@"
-            cRes := oBrw2:aArray[oBrw2:nCurrent,6]
+      IF oBrw2:nCurrent > 0 .AND. oBrw2:nCurrent <= oBrw2:nRecords
+         IF 'D' $ oBrw2:aArray[oBrw2:nCurrent,5] .AND. ( !lSelect .OR. Empty(oEdit:GetText()) )
+            ::cCurrPath += oBrw2:aArray[oBrw2:nCurrent,1] + hb_ps()
+            oBrw2:aArray := SetBrw2( Self, oCombo:Value )
+            oBrw2:Top()
+            oBrw2:Refresh()
+            oBrw1:aArray := SetBrw1( Self, ::cCurrPath )
+            oBrw1:nCurrent := oBrw1:rowPos := ::nPathPos
+            oBrw1:Refresh()
          ELSE
-            cRes := ::cCurrPath + oBrw2:aArray[oBrw2:nCurrent,1]
-            IF ::lRecent
-               hb_AIns( ::aRecent, 1, cRes, .T. )
+            IF ::lToSave
+               cRes := ::cCurrPath + oEdit:GetText()
+            ELSEIF oBrw2:aArray[oBrw2:nCurrent,5] == "@"
+               cRes := oBrw2:aArray[oBrw2:nCurrent,6]
+            ELSE
+               cRes := ::cCurrPath + oBrw2:aArray[oBrw2:nCurrent,1]
+               IF ::lRecent
+                  hb_AIns( ::aRecent, 1, cRes, .T. )
+               ENDIF
             ENDIF
+            hwg_EndDialog()
          ENDIF
+      ELSEIF ::lToSave .AND. !Empty( oEdit:GetText() )
+         cRes := ::cCurrPath + oEdit:GetText()
          hwg_EndDialog()
       ENDIF
+      lSelect := .F.
       RETURN .T.
+   }
+   LOCAL bSelect := {||
+      lSelect := .T.
+      RETURN Eval( bEnter2 )
    }
    LOCAL bCombo := {||
       oBrw2:aArray := SetBrw2( Self, oCombo:Value )
@@ -110,7 +126,10 @@ METHOD Show() CLASS HFileSelect
       RETURN .T.
    }
    LOCAL bPosChg2 := {||
-      oEdit:SetText( oBrw2:aArray[oBrw2:nCurrent,1] )
+      IF oBrw2:nCurrent > 0 .AND. oBrw2:nCurrent <= oBrw2:nRecords .AND. ;
+         !( 'D' $ oBrw2:aArray[oBrw2:nCurrent,5] )
+         oEdit:SetText( oBrw2:aArray[oBrw2:nCurrent,1] )
+      ENDIF
       RETURN .T.
    }
 
@@ -185,7 +204,7 @@ METHOD Show() CLASS HFileSelect
    @ oDlg:nWidth-120, oDlg:nHeight-48 OWNERBUTTON SIZE 100,30 TEXT "Select" ;
       COLOR ::aColors[CLR_BTN1] HSTYLES ::oStyleNormal, ::oStylePressed, ::oStyleOver ;
       ON SIZE ANCHOR_LEFTABS + ANCHOR_RIGHTABS + ANCHOR_BOTTOMABS ;
-      ON CLICK bEnter2
+      ON CLICK bSelect
 
    ACTIVATE DIALOG oDlg
 

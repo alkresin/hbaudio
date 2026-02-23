@@ -1,8 +1,13 @@
 /*
- * Player
+ * Audio player demo program, main source file
+ * Harbour + HwGUI + Miniaudio
+ *
+ * HbAudio - Harbour wrappers for miniaudio
+ *
+ * Copyright 2026 Alexander S.Kresin <alex@kresin.ru>
+ * www - http://www.kresin.ru
  */
 
-#include "hbclass.ch"
 #include "hwgui.ch"
 
 #define CLR_BLACK   0

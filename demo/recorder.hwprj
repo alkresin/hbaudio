@@ -1,0 +1,11 @@
+
+{win}c_compiler=mingw64
+{unix}libs=pthread m
+
+libspath=../lib
+libs=hbaudio
+
+recorder.prg
+hrecord.prg
+hfileselect.prg
+common.prg

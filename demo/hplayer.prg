@@ -1,5 +1,11 @@
 /*
- * HPlayer class - audio player implementation, based on Miniaudio and HwGUI
+ * Audio player demo program, HPlayer class source file
+ * Harbour + HwGUI + Miniaudio
+ *
+ * HbAudio - Harbour wrappers for miniaudio
+ *
+ * Copyright 2026 Alexander S.Kresin <alex@kresin.ru>
+ * www - http://www.kresin.ru
  */
 
 #include "hbclass.ch"
@@ -207,7 +213,6 @@ METHOD Play() CLASS HPlayer
    ENDIF
 
    ::oBtnPlay:bClick := {||::Stop()}
-   ::oBtnPlay:title := 'x'
    ::oBtnPlay:Refresh()
 
    ma_sound_start( ::pSound )

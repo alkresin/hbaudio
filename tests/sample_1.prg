@@ -1,5 +1,12 @@
 /*
+ * sample_1.prg - A sample of playing an audio file
+ *
+ * HbAudio - Harbour wrappers for miniaudio
+ *
+ * Copyright 2026 Alexander S.Kresin <alex@kresin.ru>
+ * www - http://www.kresin.ru
  */
+
 STATIC pEngine := Nil, pSound := Nil
 
 #define K_ESC    27
