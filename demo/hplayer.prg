@@ -41,6 +41,7 @@ CLASS HPlayer
    DATA lTime     INIT .T.
    DATA lGraph    INIT .F.
    DATA lStopped  INIT .T.
+   DATA nNewPos   INIT -1
    DATA nPlayPos
    DATA nChannels, nRate, nFramesAll
    DATA nChnMode  INIT 1
@@ -65,7 +66,11 @@ METHOD New( oPane, oWnd, aColors, cLastPath, nVolume, lTime, lGraph ) CLASS HPla
    LOCAL nTimeWidth, nGraphWidth
    LOCAL bTrack := {|o|
       IF ::pSound != Nil
-         ma_sound_seek_to_pcm_frame( ::pSound, Int( o:Value*::nFramesAll ) )
+         IF ma_sound_is_playing( ::pSound )
+            ::nNewPos := Int( o:Value*::nFramesAll )
+         ELSE
+            ma_sound_seek_to_pcm_frame( ::pSound, Int( o:Value*::nFramesAll ) )
+         ENDIF
          ::ShowTime( Int( o:Value*::nFramesAll ) )
       ENDIF
 
@@ -204,6 +209,7 @@ METHOD PlayFile( cFile ) CLASS HPlayer
       ::nFramesAll := ma_sound_get_length_in_pcm_frames( ::pSound )
       ::aGraphData := Nil
 
+      ::nNewPos := -1
       SET TIMER oTimer OF ::oBoard VALUE 10 ACTION {||::Play()} ONCE
    ENDIF
 
@@ -231,6 +237,16 @@ METHOD Play() CLASS HPlayer
    ::oSayTime:SetText( cTime )
 
    DO WHILE ::pSound != Nil .AND. ma_sound_is_playing( ::pSound )
+      IF ::nNewPos >= 0
+         ma_sound_stop( ::pSound )
+         ma_sleep(5)
+         ma_sound_seek_to_pcm_frame( ::pSound, ::nNewPos )
+         //hwg_writelog( "newpos: " + str(::nNewPos) )
+         //hwg_writelog( "pos: " + str(ma_sound_get_cursor_in_pcm_frames( ::pSound )) )
+         ma_sleep(5)
+         ma_sound_start( ::pSound )
+         ::nNewPos := -1
+      ENDIF
       IF Seconds() - nSec > 0.2
          nSec := Seconds()
          ::nPlayPos := ma_sound_get_cursor_in_pcm_frames( ::pSound )
