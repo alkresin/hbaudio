@@ -140,7 +140,7 @@ METHOD RecFile() CLASS HRecorder
    LOCAL bOk := {||
       IF !Empty( cFile := oEdit:GetText() )
          ::KillDevice()
-         IF Empty( ::pDevice := ma_capture_init( ::cLastPath + cFile, Val(aRates[oCombo:Value]), oUpd1:Value ) )
+         IF Empty( ::pDevice := ma_device_capture_init( ::cLastPath + cFile, Val(aRates[oCombo:Value]), oUpd1:Value ) )
             ::Message( "Capture init failed", "Error" )
             hwg_EndDialog()
             RETURN .F.
@@ -224,7 +224,7 @@ METHOD Record() CLASS HRecorder
    ::oBtnPause:lHide := .F.
    ::oBtnPause:Refresh()
 
-   ma_capture_start( ::pDevice )
+   ma_device_capture_start( ::pDevice )
    ::lRecording := .T.
    ::lPause := .F.
 
@@ -256,11 +256,11 @@ METHOD Pause() CLASS HRecorder
 
    IF !Empty( ::pDevice ) .AND. ::lRecording
       IF ::lPause
-         ma_capture_start( ::pDevice )
+         ma_device_capture_start( ::pDevice )
          ::lPause := .F.
          ::oSayState:SetText( "Recording" )
       ELSE
-         ma_capture_stop( ::pDevice )
+         ma_device_capture_stop( ::pDevice )
          ::lPause := .T.
          ::oSayState:SetText( "Pause" )
       ENDIF
@@ -272,9 +272,9 @@ METHOD KillDevice() CLASS HRecorder
 
    IF !Empty( ::pDevice )
       IF ::lRecording
-         ma_capture_stop( ::pDevice )
+         ma_device_capture_stop( ::pDevice )
       ENDIF
-      ma_capture_uninit( ::pDevice )
+      ma_device_capture_uninit( ::pDevice )
       ::pDevice := Nil
    ENDIF
    ::lRecording := .F.

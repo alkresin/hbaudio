@@ -412,18 +412,18 @@ HB_FUNC( MA_GETRANGE ) {
 
 }
 
-// Callback функция, вызываемая при получении данных с микрофона
+// Callback function, called when receiving data from the microphone
 void data_capture_callback( ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount )
 {
-    // Записываем полученные данные в encoder (который сохраняет в файл)
+    // Write the received data to the encoder (which saves it to a file)
     ma_encoder_write_pcm_frames( (ma_encoder*)pDevice->pUserData, pInput, frameCount, NULL );
 
-    (void)pOutput; // Не используется в capture режиме
+    (void)pOutput;
 }
 
 /* ma_capture_init( cFile, nSampleRate, nChannels )
  */
-HB_FUNC( MA_CAPTURE_INIT ) {
+HB_FUNC( MA_DEVICE_CAPTURE_INIT ) {
 
    const char* filename = HB_ISCHAR(1)? hb_parc( 1 ) : "out.wav";
    ma_uint32 sampleRate = HB_ISNUM(2)? hb_parni( 2 ) : 44100;
@@ -435,7 +435,7 @@ HB_FUNC( MA_CAPTURE_INIT ) {
    ma_encoder *pEncoder;
    udevice * uDevice;
 
-   // Настраиваем encoder для сохранения в WAV файл
+   // Configuring the encoder to save to a WAV file
    encoderConfig = ma_encoder_config_init( ma_encoding_format_wav, ma_format_s16, channels, sampleRate );
    pEncoder = (ma_encoder *) hb_xgrab( sizeof(ma_encoder) );
    result = ma_encoder_init_file(filename, &encoderConfig, pEncoder);
@@ -445,7 +445,7 @@ HB_FUNC( MA_CAPTURE_INIT ) {
       return;
    }
 
-   // Настраиваем устройство захвата
+   // Configuring the capture device
    deviceConfig = ma_device_config_init( ma_device_type_capture );
    deviceConfig.capture.format   = ma_format_s16;
    deviceConfig.capture.channels = channels;
@@ -453,7 +453,7 @@ HB_FUNC( MA_CAPTURE_INIT ) {
    deviceConfig.pUserData        = pEncoder;
    deviceConfig.dataCallback     = data_capture_callback;
 
-   // Инициализируем устройство
+   // Initializing the device
    pDevice = (ma_device *) hb_xgrab( sizeof(ma_device) );
    result = ma_device_init( NULL, &deviceConfig, pDevice );
    if (result != MA_SUCCESS) {
@@ -465,12 +465,13 @@ HB_FUNC( MA_CAPTURE_INIT ) {
    }
 
    uDevice = (udevice *) hb_xgrab( sizeof(udevice) );
+   memset( uDevice, 0, sizeof(udevice) );
    uDevice->pCoder = (void*)pEncoder;
    uDevice->pDevice = pDevice;
    hb_retptr( (void*) uDevice );
 }
 
-HB_FUNC( MA_CAPTURE_UNINIT ) {
+HB_FUNC( MA_DEVICE_CAPTURE_UNINIT ) {
 
    udevice * uDevice = (udevice*) hb_parptr( 1 );
 
@@ -481,7 +482,7 @@ HB_FUNC( MA_CAPTURE_UNINIT ) {
    hb_xfree( uDevice );
 }
 
-HB_FUNC( MA_CAPTURE_START ) {
+HB_FUNC( MA_DEVICE_CAPTURE_START ) {
 
    udevice * uDevice = (udevice*) hb_parptr( 1 );
 
@@ -489,7 +490,7 @@ HB_FUNC( MA_CAPTURE_START ) {
 
 }
 
-HB_FUNC( MA_CAPTURE_STOP ) {
+HB_FUNC( MA_DEVICE_CAPTURE_STOP ) {
 
    udevice * uDevice = (udevice*) hb_parptr( 1 );
 
