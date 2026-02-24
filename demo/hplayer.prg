@@ -164,13 +164,14 @@ METHOD New( oPane, oWnd, aColors, cLastPath, nVolume, lTime, lGraph ) CLASS HPla
 
 METHOD PlayFile( cFile ) CLASS HPlayer
 
-   LOCAL oTimer, ohf, ymax := 0.9, ymin := -0.9
+   LOCAL oTimer, ohf, ymax := 0.9, ymin := -0.9, nSec
 
    ::cFile := Nil
 
    IF !Empty( cFile )
       IF File( cFile )
          ::cFile := cFile
+         HFileSelect():AddRecent( cFile )
       ENDIF
    ELSEIF cFile == ""
       ::cFile := HFileSelect():Open( { {"Supported  Files","*.wav;*.mp3;*.flac"}, {"All Files","*"} }, ::cLastPath, ::aColors )
@@ -187,6 +188,10 @@ METHOD PlayFile( cFile ) CLASS HPlayer
          RETURN Nil
       ENDIF
       IF ::lGraph
+         nSec := Seconds()
+         DO WHILE Seconds() - nSec < 0.1
+            hwg_ProcessMessage()
+         ENDDO
          ::pSound4Graph := ma_Sound_Init( ::pEngine, ::cFile, .T. )
          ma_GetRange( ::pSound4Graph, @ymax, @ymin )
          ::oGraph:yMaxSet := ymax
@@ -212,11 +217,11 @@ METHOD Play() CLASS HPlayer
       RETURN Nil
    ENDIF
 
-   ::oBtnPlay:bClick := {||::Stop()}
-   ::oBtnPlay:Refresh()
-
    ma_sound_start( ::pSound )
    ::lStopped := .F.
+
+   ::oBtnPlay:bClick := {||::Stop()}
+   ::oBtnPlay:Refresh()
 
    ::ShowTime( ::nPlayPos := ma_sound_get_cursor_in_pcm_frames( ::pSound ) )
    n := Int( ::nPlayPos/::nRate )
@@ -252,7 +257,6 @@ METHOD Stop() CLASS HPlayer
    ma_sound_stop( ::pSound )
    ::lStopped := .T.
    ::oBtnPlay:bClick := {||::Play()}
-   ::oBtnPlay:title := '>'
    ::oBtnPlay:Refresh()
 
    RETURN Nil

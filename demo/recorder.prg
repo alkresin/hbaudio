@@ -18,7 +18,7 @@
 #define CLR_GBROWN  0x3C3940
 
 #define HEA_HEIGHT         28
-#define PL_WIDTH          400
+#define PL_WIDTH          300
 #define PL_HEIGHT          32
 
 STATIC oRecord
@@ -47,6 +47,7 @@ FUNCTION Main()
       ON SIZE ANCHOR_LEFTABS + ANCHOR_RIGHTABS
 
    oRecord := HRecorder():New( oPaneTop, arrColors[nTheme] )
+   SET KEY 0, VK_SPACE TO oRecord:Pause()
 
    ACTIVATE WINDOW oMain
 

@@ -14,8 +14,8 @@
 
 typedef struct
 {
-    ma_encoder *pEncoder;
     ma_device  *pDevice;
+    void        *pCoder;
 } udevice;
 
 void c_writelog( const char * sFile, const char * sTraceMsg, ... )
@@ -465,7 +465,7 @@ HB_FUNC( MA_CAPTURE_INIT ) {
    }
 
    uDevice = (udevice *) hb_xgrab( sizeof(udevice) );
-   uDevice->pEncoder = pEncoder;
+   uDevice->pCoder = (void*)pEncoder;
    uDevice->pDevice = pDevice;
    hb_retptr( (void*) uDevice );
 }
@@ -474,9 +474,9 @@ HB_FUNC( MA_CAPTURE_UNINIT ) {
 
    udevice * uDevice = (udevice*) hb_parptr( 1 );
 
-   ma_encoder_uninit( uDevice->pEncoder );
+   ma_encoder_uninit( (ma_encoder *)uDevice->pCoder );
    ma_device_uninit( uDevice->pDevice );
-   hb_xfree( uDevice->pEncoder );
+   hb_xfree( (ma_encoder *)(uDevice->pCoder) );
    hb_xfree( uDevice->pDevice );
    hb_xfree( uDevice );
 }

@@ -45,6 +45,7 @@ CLASS HFileSelect
    METHOD Show()
    METHOD Open( aFilters, cCurrPath, aColors )
    METHOD Save( aFilters, cCurrPath, aColors )
+   METHOD AddRecent( cFile )
 
 ENDCLASS
 
@@ -103,7 +104,7 @@ METHOD Show() CLASS HFileSelect
             ELSE
                cRes := ::cCurrPath + oBrw2:aArray[oBrw2:nCurrent,1]
                IF ::lRecent
-                  hb_AIns( ::aRecent, 1, cRes, .T. )
+                  ::AddRecent( cRes )
                ENDIF
             ENDIF
             hwg_EndDialog()
@@ -224,6 +225,11 @@ METHOD Save( aFilters, cCurrPath, aColors ) CLASS HFileSelect
 
    RETURN o:Show()
 
+METHOD AddRecent( cFile ) CLASS HFileSelect
+
+   hb_AIns( ::aRecent, 1, cFile, .T. )
+   RETURN Nil
+
 STATIC FUNCTION SetBrw1( o, cPath )
 
    LOCAL arr, arr2, i
@@ -248,7 +254,7 @@ STATIC FUNCTION SetBrw1( o, cPath )
    NEXT
    cPath := ""
    FOR i := Len( arr2 ) TO 1 STEP -1
-      cPath += hb_ps() + arr2[i,1]
+      cPath += Iif( ':' $ arr2[i,1], "", hb_ps() ) + arr2[i,1]
       arr2[i,2] := cPath
       //hwg_writelog( arr2[i,1] + "  " + arr2[i,2] )
    NEXT
@@ -273,6 +279,7 @@ STATIC FUNCTION SetBrw2( o, nItem )
 
    aDir := Directory( o:cCurrPath+"*", "HSD" )
    af := hb_ATokens( o:aFilters[nItem,2], ';' )
+   //hwg_Writelog( o:cCurrPath+"*" + " " + str(len(adir)) )
 
    FOR i := 1 TO Len( aDir )
       IF Empty( aDir[i] )

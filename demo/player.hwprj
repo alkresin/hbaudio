@@ -1,5 +1,5 @@
 
-{win}c_compiler=mingw64
+{win}c_compiler=mingw
 {unix}libs=pthread m
 
 libspath=../lib

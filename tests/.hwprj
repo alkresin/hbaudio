@@ -1,5 +1,5 @@
 
-{win}c_compiler=mingw64
+{win}c_compiler=mingw
 guilib=
 {unix}libs=pthread m
 

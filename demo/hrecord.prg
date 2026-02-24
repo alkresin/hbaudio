@@ -32,19 +32,23 @@ STATIC aRates := { "8000", "16000", "24000", "32000", "44100", "48000", ;
 
 CLASS HRecorder
 
-   DATA oBoard, oBtnAdd, oBtnRec, oSayState
+   DATA pDevice
+   DATA oBoard, oBtnAdd, oBtnRec, oBtnPause, oSayState
    DATA cFile        INIT "out.wav"
    DATA aColors
    DATA oBrushBtn1, oBrushBtn2
    DATA oStyleNormal, oStylePressed, oStyleOver
    DATA cLastPath
    DATA lRecording   INIT .F.
-   DATA pDevice
+   DATA lPause       INIT .F.
+   DATA nSecondsRest INIT 0
+   DATA nSecondsDef  INIT 3
 
    METHOD New( oPane, oWnd, aColors )
    METHOD RecFile()
    METHOD Record()
    METHOD Stop()
+   METHOD Pause()
    METHOD KillDevice()
    METHOD Message( cText, cTitle )
    METHOD End()
@@ -54,8 +58,15 @@ CLASS HRecorder
 METHOD New( oPane, aColors ) CLASS HRecorder
 
    LOCAL bPaintB1 := {|o,hdc|
-      hwg_Ellipse_Filled( hDC, o:nLeft+4, o:nTop+4, o:nLeft+o:nWidth-4, o:nTop+o:nHeight-4,, ;
-         Iif( ::lRecording, ::oBrushBtn1:handle, ::oBrushBtn2:handle ) )
+      LOCAL x := Min( o:nWidth, o:nHeight ), y := Int((o:nHeight-x)/2)
+      LOCAL nl := o:nLeft, nt := o:nTop, oStyle
+      oStyle := Iif( Len(o:aStyles) > o:nState, o:aStyles[o:nState + 1], ATail(o:aStyles) )
+      oStyle:Draw( hDC, o:nLeft, o:nTop, o:nLeft+o:nWidth-1, o:nTop+o:nHeight-1 )
+      IF  ::lRecording
+         hwg_Rectangle_Filled( hDC, nl+4, nt+6, nl+o:nWidth-4, nt+o:nHeight-6, .F., ::oBrushBtn1:handle )
+      ELSE
+         hwg_Ellipse_Filled( hDC, nl, nt+y, nl+x-1, nt+x,, ::oBrushBtn2:handle )
+      ENDIF
       RETURN 0
    }
    LOCAL bPaintB2 := {|o,hdc|
@@ -64,6 +75,18 @@ METHOD New( oPane, aColors ) CLASS HRecorder
       oStyle:Draw( hDC, o:nLeft, o:nTop, o:nLeft+o:nWidth-1, o:nTop+o:nHeight-1 )
       hwg_Rectangle_Filled( hDC, nl+4+Int((o:nWidth-8)/2)-1, nt+6, nl+4+Int((o:nWidth-8)/2)+1, nt+o:nHeight-6, .F., ::oBrushBtn2:handle )
       hwg_Rectangle_Filled( hDC, nl+6, nt+4+Int((o:nHeight-8)/2)-1, nl+o:nWidth-4, nt+6+Int((o:nHeight-12)/2)+1, .F., ::oBrushBtn2:handle )
+      RETURN 0
+   }
+   LOCAL bPaintB3 := {|o,hdc|
+      LOCAL nl := o:nLeft, nt := o:nTop, oStyle
+      oStyle := Iif( Len(o:aStyles) > o:nState, o:aStyles[o:nState + 1], ATail(o:aStyles) )
+      oStyle:Draw( hDC, o:nLeft, o:nTop, o:nLeft+o:nWidth-1, o:nTop+o:nHeight-1 )
+      IF ::lPause
+         hwg_Triangle_Filled( hDC, nl+4, nt+6, nl+o:nWidth-4, nt+6+Int((o:nHeight-12)/2), nl+4, nt+o:nHeight-6, .F., ::oBrushBtn1:handle )
+      ELSE
+         hwg_Rectangle_Filled( hDC, nl+4, nt+6, nl+8, nt+o:nHeight-6, .F., ::oBrushBtn1:handle )
+         hwg_Rectangle_Filled( hDC, nl+o:nWidth-8, nt+6, nl+o:nWidth-4, nt+o:nHeight-6, .F., ::oBrushBtn1:handle )
+      ENDIF
       RETURN 0
    }
 
@@ -85,38 +108,49 @@ METHOD New( oPane, aColors ) CLASS HRecorder
    ::oBtnAdd:bPaint := bPaintB2
    ::oBtnAdd:bClick := {|| ::RecFile() }
 
-   @ 24, 2 DRAWN ::oBtnRec SIZE 20, 28 ;
+   @ 30, 2 DRAWN ::oBtnRec SIZE 20, 28 COLOR ::aColors[CLR_BTN2] ;
       HSTYLES { ::oStyleNormal, ::oStyleOver, ::oStyleNormal }
+   ::oBtnRec:aMargin[2] := 2
    ::oBtnRec:bPaint := bPaintB1
    ::oBtnRec:bClick := {|| ::Record() }
    ::oBtnRec:lHide := .T.
 
-   @ 50, 2 DRAWN ::oSayState SIZE 160, 28 COLOR ::aColors[CLR_BTN2] BACKCOLOR ::aColors[CLR_BOARD]
+   @ 58, 2 DRAWN ::oBtnPause SIZE 20, 28 COLOR ::aColors[CLR_BTN2] ;
+      HSTYLES { ::oStyleNormal, ::oStyleOver, ::oStyleNormal }
+   ::oBtnPause:bClick := {|| ::Pause() }
+   ::oBtnPause:bPaint := bPaintB3
+   ::oBtnPause:lHide := .T.
+
+   @ 90, 2 DRAWN ::oSayState SIZE 160, 28 COLOR ::aColors[CLR_BTN2] BACKCOLOR ::aColors[CLR_BOARD]
 
    RETURN Self
 
 METHOD RecFile() CLASS HRecorder
 
-   LOCAL oDlg, oPaneHea, oEdit, oCombo, oUpd, oFont := HWindow():Getmain():oFont
+   LOCAL oDlg, oPaneHea, oEdit, oCombo, oUpd1, oUpd2, oFont := HWindow():Getmain():oFont
    LOCAL cFile := "out.wav"
    LOCAL bFile := {||
       cFile := HFileSelect():Save( { {"Wav files","*.wav"} }, ::cLastPath, ::aColors )
       IF !Empty( cFile )
          oEdit:SetText( hb_fnameNameExt( cFile ) )
          ::cLastPath := hb_fnameDir( cFile )
-         ::oSayState:SetText( hb_fnameNameExt( cFile ) )
       ENDIF
       RETURN .T.
    }
    LOCAL bOk := {||
-      IF Empty( ::pDevice := ma_capture_init( cFile, Val(aRates[oCombo:Value]), oUpd:Value ) )
-         ::Message( "Capture init failed", "Error" )
+      IF !Empty( cFile := oEdit:GetText() )
+         ::KillDevice()
+         IF Empty( ::pDevice := ma_capture_init( ::cLastPath + cFile, Val(aRates[oCombo:Value]), oUpd1:Value ) )
+            ::Message( "Capture init failed", "Error" )
+            hwg_EndDialog()
+            RETURN .F.
+         ENDIF
+         ::oSayState:SetText( hb_fnameNameExt( cFile ) )
+         ::nSecondsDef := oUpd2:Value
+         ::oBtnRec:lHide := .F.
+         ::oBtnRec:Refresh()
          hwg_EndDialog()
-         RETURN .F.
       ENDIF
-      ::oBtnRec:lHide := .F.
-      ::oBtnRec:Refresh()
-      hwg_EndDialog()
       RETURN .T.
    }
 
@@ -125,7 +159,7 @@ METHOD RecFile() CLASS HRecorder
    ENDIF
 
    INIT DIALOG oDlg TITLE "" BACKCOLOR ::aColors[CLR_DLG] FONT oFont ;
-      AT 300, 58 SIZE 280, 240 STYLE WND_NOTITLE
+      AT 300, 58 SIZE 280, 260 STYLE WND_NOTITLE
 
    ADD HEADER PANEL oPaneHea HEIGHT HEA_HEIGHT TEXTCOLOR ::aColors[CLR_BTN2] BACKCOLOR ::aColors[CLR_HEAD] ;
       FONT oFont TEXT "Add record" COORS 20 BTN_CLOSE
@@ -136,9 +170,14 @@ METHOD RecFile() CLASS HRecorder
          HSTYLES ::oStyleNormal, ::oStylePressed, ::oStyleOver ;
          ON CLICK bFile
 
-   @ 20, 80 COMBOBOX oCombo ITEMS aRates SIZE 140, 26 INIT 1 DISPLAYCOUNT 3
+   @ 20, 80 SAY "SampleRate" SIZE 110, 26 COLOR ::aColors[CLR_BTN2] TRANSPARENT
+   @ 130, 80 COMBOBOX oCombo ITEMS aRates SIZE 130, 26 INIT 5 DISPLAYCOUNT 5
 
-   @ 20, 120 UPDOWN oUpd INIT 1 RANGE 1,2 SIZE 50,28 STYLE WS_BORDER
+   @ 20, 120 SAY "Channels" SIZE 110, 26 COLOR ::aColors[CLR_BTN2] TRANSPARENT
+   @ 130, 120 UPDOWN oUpd1 INIT 5 RANGE 1,2 SIZE 50,28 STYLE WS_BORDER
+
+   @ 20, 160 SAY "Start pause" SIZE 110, 26 COLOR ::aColors[CLR_BTN2] TRANSPARENT
+   @ 130, 160 UPDOWN oUpd2 INIT ::nSecondsDef RANGE 0,9 SIZE 50,28 STYLE WS_BORDER
 
    @ 80,oDlg:nHeight-40 OWNERBUTTON SIZE 100,30 TEXT "Ok" COLOR ::aColors[CLR_BTN1] ;
          HSTYLES ::oStyleNormal, ::oStylePressed, ::oStyleOver ;
@@ -151,6 +190,8 @@ METHOD RecFile() CLASS HRecorder
 
 METHOD Record() CLASS HRecorder
 
+   LOCAL nSec, b
+
    IF Empty( ::pDevice ) .OR. ::lRecording
       RETURN .F.
    ENDIF
@@ -158,29 +199,72 @@ METHOD Record() CLASS HRecorder
    ::oBtnAdd:lHide := .T.
    ::oBtnAdd:Refresh()
 
+   b := ::oBtnRec:bPaint
+   ::oBtnRec:bPaint := Nil
+   ::nSecondsRest := ::nSecondsDef
+   ::oBtnRec:SetText( Ltrim(Str(::nSecondsRest) ) )
    ::oBtnRec:bClick := {||::Stop()}
    ::oBtnRec:Refresh()
+   ::oSayState:SetText( "Wait..." )
+
+   DO WHILE ::nSecondsRest > 0
+      nSec := Seconds()
+      DO WHILE Seconds() - nSec < 1
+         hwg_ProcessMessage()
+         ma_sleep( 100 )
+      ENDDO
+      ::nSecondsRest --
+      ::oBtnRec:SetText( Ltrim(Str(::nSecondsRest) ) )
+      ::oBtnRec:Refresh()
+   ENDDO
+   ::oBtnRec:bPaint := b
+
    ::oSayState:SetText( "Recording" )
+
+   ::oBtnPause:lHide := .F.
+   ::oBtnPause:Refresh()
 
    ma_capture_start( ::pDevice )
    ::lRecording := .T.
+   ::lPause := .F.
 
    RETURN .T.
 
 METHOD Stop() CLASS HRecorder
 
-   IF Empty( ::pDevice ) .OR. !::lRecording
+   IF Empty( ::pDevice )
       RETURN .F.
    ENDIF
 
    ::oBtnAdd:lHide := .F.
    ::oBtnAdd:Refresh()
 
+   ::oBtnRec:lHide := .T.
    ::oBtnRec:bClick := {||::Record()}
    ::oBtnRec:Refresh()
    ::oSayState:SetText( hb_fnameNameExt( ::cFile ) )
 
+   ::oBtnPause:lHide := .T.
+   ::oBtnPause:Refresh()
+
    ::KillDevice()
+   ::lRecording := ::lPause := .F.
+
+   RETURN .T.
+
+METHOD Pause() CLASS HRecorder
+
+   IF !Empty( ::pDevice ) .AND. ::lRecording
+      IF ::lPause
+         ma_capture_start( ::pDevice )
+         ::lPause := .F.
+         ::oSayState:SetText( "Recording" )
+      ELSE
+         ma_capture_stop( ::pDevice )
+         ::lPause := .T.
+         ::oSayState:SetText( "Pause" )
+      ENDIF
+   ENDIF
 
    RETURN .T.
 
