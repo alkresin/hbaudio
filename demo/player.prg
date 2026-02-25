@@ -71,10 +71,16 @@ FUNCTION Main( cFile )
 
 STATIC FUNCTION onStart( cFile )
 
+   LOCAL l
    cFlockName := hb_dirTemp() + "player.glock"
 
    IF File( cFlockName )
-      IF FErase( cFlockName ) != 0
+#ifdef __PLATFORM__UNIX
+      l := ( _isprocessexists( hb_fnameNameExt( hb_Argv(0) ) ) > 0 )
+#else
+      l := ( FErase( cFlockName ) != 0 )
+#endif
+      IF l
          IF !Empty( cFile )
             hlock := FOpen( cFlockName, FO_READWRITE + FO_SHARED )
             FWrite( hlock, " " + cFile + "@", Len(cFile)+2 )
@@ -164,3 +170,61 @@ EXIT PROCEDURE PExit
    ENDIF
 
    RETURN
+
+#pragma BEGINDUMP
+#if defined(HB_OS_UNIX) || defined( HB_OS_UNIX ) || defined( HB_OS_BSD )
+   #include <stdio.h>
+   #include <stdlib.h>
+   #include <string.h>
+   #include <unistd.h>
+   #include <dirent.h>
+   #include <ctype.h>
+
+   #include "hbapi.h"
+
+   HB_FUNC( _ISPROCESSEXISTS )
+   {
+      const char* process_name = hb_parc(1);
+      DIR* dir;
+      struct dirent* entry;
+      char path[256];
+      char buffer[256];
+      FILE* fp;
+      int pid = -1;
+      int current_pid = getpid();
+
+      dir = opendir("/proc");
+      if (!dir) {
+         hb_retnl( -1 );
+         return;
+      }
+
+      while ((entry = readdir(dir)) != NULL) {
+         // Проверяем, что это директория с числовым именем (PID)
+         if (!isdigit(entry->d_name[0])) continue;
+
+         snprintf(path, sizeof(path), "/proc/%s/comm", entry->d_name);
+         fp = fopen(path, "r");
+         if (!fp) continue;
+
+         if (fgets(buffer, sizeof(buffer), fp)) {
+            // Убираем символ новой строки
+            buffer[strcspn(buffer, "\n")] = 0;
+
+            if (strcmp(buffer, process_name) == 0) {
+               int found_pid = atoi(entry->d_name);
+               if (found_pid != current_pid) {
+                  pid = found_pid;
+                  fclose(fp);
+                  break;
+               }
+            }
+         }
+         fclose(fp);
+      }
+
+      closedir(dir);
+      hb_retnl( pid );
+   }
+#endif
+#pragma ENDDUMP
