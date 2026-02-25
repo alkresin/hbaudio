@@ -28,7 +28,7 @@ FUNCTION Main( cFile )
    ?? "1... "
 
    ? "Start!"
-   ma_device_capture_start( pDev )
+   ma_device_start( pDev )
    nSec := Seconds()
 
    DO WHILE Seconds() - nSec < 30
@@ -38,7 +38,7 @@ FUNCTION Main( cFile )
       ma_sleep( 100 )
    ENDDO
 
-   ma_device_capture_stop( pDev )
+   ma_device_stop( pDev )
    ? "End"
    ma_device_capture_uninit( pDev )
 

@@ -412,6 +412,87 @@ HB_FUNC( MA_GETRANGE ) {
 
 }
 
+void data_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount)
+{
+    ma_decoder* pDecoder = (ma_decoder*)pDevice->pUserData;
+    if (pDecoder == NULL) {
+        return;
+    }
+
+    ma_decoder_read_pcm_frames(pDecoder, pOutput, frameCount, NULL);
+
+    (void)pInput;
+}
+
+/* ma_device_init( cFile, nSampleRate, nChannels )
+ */
+HB_FUNC( MA_DEVICE_INIT ) {
+
+   ma_result result;
+   ma_device_config deviceConfig;
+   ma_device * pDevice;
+   ma_decoder * pDecoder;
+   udevice * uDevice;
+
+   pDecoder = (ma_decoder *) hb_xgrab( sizeof(ma_decoder) );
+   result = ma_decoder_init_file( hb_parc(1), NULL, pDecoder );
+   if (result != MA_SUCCESS) {
+      hb_xfree( pDecoder );
+      hb_ret();
+      return;
+   }
+
+   deviceConfig = ma_device_config_init( ma_device_type_playback );
+   deviceConfig.playback.format   = pDecoder->outputFormat;
+   deviceConfig.playback.channels = pDecoder->outputChannels;
+   deviceConfig.sampleRate        = pDecoder->outputSampleRate;
+   deviceConfig.dataCallback      = data_callback;
+   deviceConfig.pUserData         = pDecoder;
+
+   pDevice = (ma_device *) hb_xgrab( sizeof(ma_device) );
+   if (ma_device_init( NULL, &deviceConfig, pDevice ) != MA_SUCCESS) {
+      hb_xfree( pDevice );
+      ma_decoder_uninit( pDecoder );
+      hb_xfree( pDecoder );
+      hb_ret();
+      return;
+   }
+
+   uDevice = (udevice *) hb_xgrab( sizeof(udevice) );
+   memset( uDevice, 0, sizeof(udevice) );
+   uDevice->pCoder = (void*)pDecoder;
+   uDevice->pDevice = pDevice;
+   hb_retptr( (void*) uDevice );
+
+}
+
+HB_FUNC( MA_DEVICE_UNINIT ) {
+
+   udevice * uDevice = (udevice*) hb_parptr( 1 );
+
+   ma_decoder_uninit( (ma_decoder *)uDevice->pCoder );
+   ma_device_uninit( uDevice->pDevice );
+   hb_xfree( (ma_decoder *)(uDevice->pCoder) );
+   hb_xfree( uDevice->pDevice );
+   hb_xfree( uDevice );
+}
+
+HB_FUNC( MA_DEVICE_START ) {
+
+   udevice * uDevice = (udevice*) hb_parptr( 1 );
+
+   hb_retni( ma_device_start( uDevice->pDevice ) );
+
+}
+
+HB_FUNC( MA_DEVICE_STOP ) {
+
+   udevice * uDevice = (udevice*) hb_parptr( 1 );
+
+   hb_retni( ma_device_stop( uDevice->pDevice ) );
+
+}
+
 // Callback function, called when receiving data from the microphone
 void data_capture_callback( ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount )
 {
@@ -421,7 +502,7 @@ void data_capture_callback( ma_device* pDevice, void* pOutput, const void* pInpu
     (void)pOutput;
 }
 
-/* ma_capture_init( cFile, nSampleRate, nChannels )
+/* ma_device_capture_init( cFile, nSampleRate, nChannels )
  */
 HB_FUNC( MA_DEVICE_CAPTURE_INIT ) {
 
@@ -480,22 +561,6 @@ HB_FUNC( MA_DEVICE_CAPTURE_UNINIT ) {
    hb_xfree( (ma_encoder *)(uDevice->pCoder) );
    hb_xfree( uDevice->pDevice );
    hb_xfree( uDevice );
-}
-
-HB_FUNC( MA_DEVICE_CAPTURE_START ) {
-
-   udevice * uDevice = (udevice*) hb_parptr( 1 );
-
-   hb_retni( ma_device_start( uDevice->pDevice ) );
-
-}
-
-HB_FUNC( MA_DEVICE_CAPTURE_STOP ) {
-
-   udevice * uDevice = (udevice*) hb_parptr( 1 );
-
-   hb_retni( ma_device_stop( uDevice->pDevice ) );
-
 }
 
 HB_FUNC( MA_SLEEP ) {

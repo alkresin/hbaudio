@@ -224,7 +224,7 @@ METHOD Record() CLASS HRecorder
    ::oBtnPause:lHide := .F.
    ::oBtnPause:Refresh()
 
-   ma_device_capture_start( ::pDevice )
+   ma_device_start( ::pDevice )
    ::lRecording := .T.
    ::lPause := .F.
 
@@ -256,11 +256,11 @@ METHOD Pause() CLASS HRecorder
 
    IF !Empty( ::pDevice ) .AND. ::lRecording
       IF ::lPause
-         ma_device_capture_start( ::pDevice )
+         ma_device_start( ::pDevice )
          ::lPause := .F.
          ::oSayState:SetText( "Recording" )
       ELSE
-         ma_device_capture_stop( ::pDevice )
+         ma_device_stop( ::pDevice )
          ::lPause := .T.
          ::oSayState:SetText( "Pause" )
       ENDIF
@@ -272,7 +272,7 @@ METHOD KillDevice() CLASS HRecorder
 
    IF !Empty( ::pDevice )
       IF ::lRecording
-         ma_device_capture_stop( ::pDevice )
+         ma_device_stop( ::pDevice )
       ENDIF
       ma_device_capture_uninit( ::pDevice )
       ::pDevice := Nil
