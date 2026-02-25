@@ -232,7 +232,7 @@ METHOD AddRecent( cFile ) CLASS HFileSelect
 
 STATIC FUNCTION SetBrw1( o, cPath )
 
-   LOCAL arr, arr2, i
+   LOCAL arr, arr2, i, cDrives
 
    IF '\' $ cPath
       cPath := StrTran( cPath, '\', '/' )
@@ -260,16 +260,17 @@ STATIC FUNCTION SetBrw1( o, cPath )
    NEXT
 
    o:nPathPos := 1
-   IF o:lRecent
-      hb_AIns( arr2, 1 , {"== Recent",o:aRecent}, .T. )
-      o:nPathPos ++
-   ENDIF
 #ifdef __PLATFORM__UNIX
    hb_AIns( arr2, 1 , {"== Home",hb_getenv("HOME")}, .T. )
    hb_AIns( arr2, 1 , {"== Root","/"}, .T. )
    o:nPathPos += 2
 #else
+   cDrives := _getdrives()
 #endif
+   IF o:lRecent
+      hb_AIns( arr2, 1 , {"== Recent",o:aRecent}, .T. )
+      o:nPathPos ++
+   ENDIF
 
    RETURN arr2
 
@@ -356,3 +357,53 @@ STATIC FUNCTION FSize( n )
       Iif( n<10238976,PAdl(Left(Ltrim(Str(Round(n/1024,1))),5)+"K",6), ;
       Iif( n<10484711424, PAdl(Left(Ltrim(Str(Round(n/1048576,1))),5)+"M",6), ;
       PAdl(Left(Ltrim(Str(Round(n/1073741824,1))),5)+"G",6) ) ) ) )
+
+#pragma BEGINDUMP
+
+#if defined(HB_OS_UNIX) || defined( HB_OS_UNIX ) || defined( HB_OS_BSD )
+#else
+   #define  UNICODE
+   #include <windows.h>
+   #include "hbapi.h"
+
+   HB_FUNC( _GETDRIVES )
+   {
+      DWORD dwRes = GetLogicalDrives();
+      int i;
+      char buf[26], *ptr;
+
+      if( dwRes )
+      {
+         ptr = buf;
+         for( i = 0; i<26; i++ )
+            if( (1 << i) & dwRes )
+               *ptr++ = (char) i + 65;
+         hb_retclen( buf, ptr-buf );
+      }
+   }
+   /*
+     0  The drive type cannot be determined.
+     1  The root path is invalid; for example, there is no volume mounted at the specified path.
+     2  The drive has removable media; for example, a floppy drive, thumb drive, or flash card reader.
+     3  The drive has fixed media; for example, a hard disk drive or flash drive.
+     4  The drive is a remote (network) drive.
+     5  The drive is a CD-ROM drive.
+     6  The drive is a RAM disk.
+    */
+   HB_FUNC( _GETDRIVETYPE )
+   {
+      int i;
+
+   #ifdef UNICODE
+      TCHAR wc1[6];
+      MultiByteToWideChar( GetACP(), 0, hb_parc(1), -1, wc1, 4 );
+      i = (int) GetDriveType( wc1 );
+   #else
+      i = (int) GetDriveType( hb_parc(1) );
+   #endif
+      hb_retni( i );
+   }
+
+#endif
+
+#pragma ENDDUMP
