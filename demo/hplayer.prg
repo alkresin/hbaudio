@@ -44,7 +44,6 @@ CLASS HPlayer
    DATA nNewPos   INIT -1
    DATA nPlayPos
    DATA nChannels, nRate, nFramesAll
-   DATA nChnMode  INIT 1
    DATA aGraphData
    DATA cLastPath
 
@@ -348,15 +347,9 @@ METHOD SetGraphData( nOffset ) CLASS HPlayer
          ::oGraph:aValues[1,j++] := ::aGraphData[i]
       NEXT
    ELSE
-      ::oGraph:nGraphs := Iif( ::nChnMode == 3, 2, 1 )
       FOR i := 1 TO nDataLen
-         IF ::nChnMode == 3
-            ::oGraph:aValues[1,j] := ::aGraphData[i,1]
-            ::oGraph:aValues[2,j++] := ::aGraphData[i,2]
-         ELSE
-            ::oGraph:aValues[1,j++] := ::aGraphData[i,::nChnMode]
-         ENDIF
-      NEXT
+         ::oGraph:aValues[1,j++] := (::aGraphData[i,1] + ::aGraphData[i,2]) / 1.5
+       NEXT
    ENDIF
    IF lRecalc
       ::oGraph:CalcMinMax()

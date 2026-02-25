@@ -187,8 +187,8 @@ EXIT PROCEDURE PExit
       const char* process_name = hb_parc(1);
       DIR* dir;
       struct dirent* entry;
-      char path[256];
-      char buffer[256];
+      char path[280];
+      char buffer[280];
       FILE* fp;
       int pid = -1;
       int current_pid = getpid();
