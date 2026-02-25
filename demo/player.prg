@@ -8,6 +8,7 @@
  * www - http://www.kresin.ru
  */
 
+#include "fileio.ch"
 #include "hwgui.ch"
 
 #define CLR_BLACK   0
@@ -21,6 +22,7 @@
 #define PL_WIDTH          600
 #define PL_HEIGHT          32
 
+STATIC hlock := -1, cFlockName, oTimer
 STATIC oPlayer
 STATIC arrColors := { {CLR_BGRAY1,CLR_BGRAY2,CLR_DBROWN,CLR_GBROWN,CLR_BLACK,CLR_WHITE}, ;
    {0x797979,0x555555,0x222222,0x353535,CLR_BLACK,CLR_WHITE} }
@@ -29,6 +31,10 @@ STATIC nTheme := 1, cLastPath, oFontMain, nVolume := 0.5, lTime := .T., lGraph :
 FUNCTION Main( cFile )
 
    LOCAL oMain, oPaneHea, oPaneTop
+
+   IF !onStart( cFile )
+      RETURN Nil
+   ENDIF
 
    ReadIni()
 
@@ -50,6 +56,8 @@ FUNCTION Main( cFile )
 
    oPlayer := HPlayer():New( oPaneTop, oPaneHea, arrColors[nTheme], cLastPath, nVolume, lTime, lGraph )
 
+   SET TIMER oTimer OF oMain VALUE 500 ACTION {||CheckLock()}
+
    SET KEY 0, VK_SPACE TO Iif( oPlayer:lStopped, oPlayer:Play(), oPlayer:Stop() )
 
    ACTIVATE WINDOW oMain ON ACTIVATE {|| Iif(!Empty(cFile), oPlayer:PlayFile(cFile), .T.) }
@@ -57,6 +65,48 @@ FUNCTION Main( cFile )
    IF !Empty( HPlayer():pEngine )
       ma_Engine_UnInit( HPlayer():pEngine )
       HPlayer():pEngine := Nil
+   ENDIF
+
+   RETURN Nil
+
+STATIC FUNCTION onStart( cFile )
+
+   cFlockName := hb_dirTemp() + "player.glock"
+
+   IF File( cFlockName )
+      IF FErase( cFlockName ) != 0
+         IF !Empty( cFile )
+            hlock := FOpen( cFlockName, FO_READWRITE + FO_SHARED )
+            FWrite( hlock, " " + cFile + "@", Len(cFile)+2 )
+            FSeek( hlock, 0, 0 )
+            FWrite( hlock, "@", 1 )
+            FClose( hlock )
+         ENDIF
+         RETURN .F.
+      ENDIF
+   ENDIF
+
+   hlock := FCreate( cFlockName )
+   FClose( hlock )
+   hlock := FOpen( cFlockName, FO_READWRITE + FO_SHARED )
+
+   RETURN .T.
+
+STATIC FUNCTION CheckLock()
+
+   LOCAL nRead, nPos, cFile
+   STATIC cBuff := .F.
+
+   IF Valtype( cBuff ) == "L"
+      cBuff := Space( 256 )
+   ENDIF
+   FSeek( hlock, 0, 0 )
+   nRead := FRead( hlock, @cBuff, 256 )
+   IF Left( cBuff,1 ) == '@' .AND. ( nPos := hb_At( "@", cBuff, 2 ) ) > 0
+      cFile := SubStr( cBuff, 2, nPos-2 )
+      FSeek( hlock, 0, 0 )
+      FWrite( hlock, "   ", 3 )
+      oPlayer:PlayFile( cFile )
    ENDIF
 
    RETURN Nil
@@ -101,10 +151,16 @@ STATIC FUNCTION ReadIni()
 
 EXIT PROCEDURE PExit
 
-   oPlayer:End()
-   IF !Empty( HPlayer():pEngine )
-      ma_Engine_UnInit( HPlayer():pEngine )
-      HPlayer():pEngine := Nil
+   IF !Empty( oPlayer )
+      oPlayer:End()
+      IF !Empty( HPlayer():pEngine )
+         ma_Engine_UnInit( HPlayer():pEngine )
+         HPlayer():pEngine := Nil
+      ENDIF
+   ENDIF
+   IF hlock != -1
+      FClose( hLock )
+      FErase( cFlockName )
    ENDIF
 
    RETURN
