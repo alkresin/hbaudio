@@ -559,6 +559,21 @@ HB_FUNC( MA_DEVICE_IS_PLAYING ) {
    hb_retl( ((udata*)pDevice->pUserData)->bPlaying );
 }
 
+HB_FUNC( MA_DEVICE_GET_VOLUME ) {
+
+   ma_device * pDevice = (ma_device*) hb_parptr( 1 );
+   float volume;
+
+   ma_device_get_master_volume( pDevice, &volume );
+   hb_retnd( volume );
+}
+
+HB_FUNC( MA_DEVICE_SET_VOLUME ) {
+
+   ma_device * pDevice = (ma_device*) hb_parptr( 1 );
+   ma_device_set_master_volume( pDevice, hb_parnd(2) );
+}
+
 // Callback function, called when receiving data from the microphone
 void data_capture_callback( ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount )
 {
