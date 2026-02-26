@@ -22,7 +22,7 @@
 #define PL_WIDTH          600
 #define PL_HEIGHT          32
 
-STATIC hlock := -1, cFlockName, oTimer
+STATIC hlock := -1, lLock := .F., cFlockName, oTimer
 STATIC oPlayer
 STATIC arrColors := { {CLR_BGRAY1,CLR_BGRAY2,CLR_DBROWN,CLR_GBROWN,CLR_BLACK,CLR_WHITE}, ;
    {0x797979,0x555555,0x222222,0x353535,CLR_BLACK,CLR_WHITE} }
@@ -95,6 +95,7 @@ STATIC FUNCTION onStart( cFile )
    hlock := FCreate( cFlockName )
    FClose( hlock )
    hlock := FOpen( cFlockName, FO_READWRITE + FO_SHARED )
+   lLock := .T.
 
    RETURN .T.
 
@@ -164,7 +165,7 @@ EXIT PROCEDURE PExit
          HPlayer():pEngine := Nil
       ENDIF
    ENDIF
-   IF hlock != -1
+   IF lLock
       FClose( hLock )
       FErase( cFlockName )
    ENDIF
