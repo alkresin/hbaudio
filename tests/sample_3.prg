@@ -1,6 +1,6 @@
 /*
- * sample_1.prg - A sample of playing an audio file,
- *   using the High Level API
+ * sample_3.prg - A sample of playing an audio file
+ *   using the Low Level API
  *
  * HbAudio - Harbour wrappers for miniaudio
  *
@@ -8,7 +8,7 @@
  * www - http://www.kresin.ru
  */
 
-STATIC pEngine := Nil, pSound := Nil
+STATIC pDevice := Nil
 
 #define K_ESC    27
 #define K_SPACE  32
@@ -27,35 +27,31 @@ FUNCTION Main( cFile )
       RETURN Nil
    ENDIF
 
-   IF Empty( pEngine := ma_Engine_Init() )
-      ? "ma_Engine_Init() failed"
+   ? "Start!"
+   IF Empty( pDevice := ma_Device_Init( cFile ) )
+      ? "ma_Device_Init() failed"
       RETURN Nil
    ENDIF
 
-   IF Empty( pSound := ma_Sound_Init( pEngine, cFile ) )
-      ? "ma_Sound_Init() failed"
-      RETURN Nil
-   ENDIF
-
-   nRate := ma_engine_get_sample_rate( pEngine )
-   nFrames := ma_sound_get_length_in_pcm_frames( pSound )
+   nRate := ma_decoder_get_sample_rate( pDevice )
+   nFrames := ma_decoder_get_length_in_pcm_frames( pDevice )
 
    ? nFrames/nRate, "seconds"
    ? "Playing... "
-   ma_sound_start( pSound )
+   ma_device_start( pDevice )
 
    DO WHILE !lExit
-      DO WHILE ma_sound_is_playing( pSound )
+      DO WHILE ma_device_is_playing( pDevice )
          ma_sleep( 100 )
          IF ( nKey := Inkey() ) == K_ESC
-            ma_sound_stop( pSound )
+            ma_device_stop( pDevice )
             lExit := .T.
             EXIT
          ELSEIF nKey == K_SPACE
-            ma_sound_stop( pSound )
+            ma_device_stop( pDevice )
             lStopped := .T.
          ENDIF
-         PrintProgress( ma_sound_get_cursor_in_pcm_frames( pSound ) * 100 / nFrames )
+         PrintProgress( ma_decoder_get_cursor_in_pcm_frames( pDevice ) * 100 / nFrames )
       ENDDO
       IF lStopped
          DO WHILE .T.
@@ -64,7 +60,7 @@ FUNCTION Main( cFile )
                lExit := .T.
                EXIT
             ELSEIF nKey == K_SPACE
-               ma_sound_start( pSound )
+               ma_device_start( pDevice )
                lStopped := .F.
                EXIT
             ENDIF
@@ -73,7 +69,7 @@ FUNCTION Main( cFile )
          EXIT
       ENDIF
    ENDDO
-   ma_sound_uninit( pSound )
+   ma_device_uninit( pDevice )
 
    RETURN Nil
 
@@ -92,10 +88,5 @@ STATIC FUNCTION PrintProgress( nCurr )
 
 EXIT PROCEDURE FExit
 
-   IF !Empty( pEngine )
-      ma_Engine_UnInit( pEngine )
-   ENDIF
    ? "Press any key to exit"
    Inkey(0)
-
-   RETURN

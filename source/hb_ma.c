@@ -14,9 +14,10 @@
 
 typedef struct
 {
-    ma_device  *pDevice;
-    void        *pCoder;
-} udevice;
+   void          *pCoder;
+   PHB_DYNS pSym_onEvent;
+   short int    bPlaying;
+} udata;
 
 void c_writelog( const char * sFile, const char * sTraceMsg, ... )
 {
@@ -412,19 +413,71 @@ HB_FUNC( MA_GETRANGE ) {
 
 }
 
-void data_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount)
-{
-    ma_decoder* pDecoder = (ma_decoder*)pDevice->pUserData;
-    if (pDecoder == NULL) {
-        return;
-    }
+HB_FUNC( MA_DECODER_GET_SAMPLE_RATE ) {
 
-    ma_decoder_read_pcm_frames(pDecoder, pOutput, frameCount, NULL);
+   ma_device * pDevice = (ma_device*) hb_parptr( 1 );
+   udata *pUData = (udata*)pDevice->pUserData;
+   ma_uint32 sampleRate;
 
-    (void)pInput;
+   ma_decoder_get_data_format( (ma_decoder *)(pUData->pCoder),
+      NULL, NULL, &sampleRate, NULL, 0 );
+   hb_retnl( sampleRate );
 }
 
-/* ma_device_init( cFile, nSampleRate, nChannels )
+HB_FUNC( MA_DECODER_GET_CHANNELS ) {
+
+   ma_device * pDevice = (ma_device*) hb_parptr( 1 );
+   udata *pUData = (udata*)pDevice->pUserData;
+   ma_uint32 channels;
+
+   ma_decoder_get_data_format( (ma_decoder *)(pUData->pCoder),
+      NULL, &channels, NULL, NULL, 0 );
+   hb_retnl( channels );
+}
+
+HB_FUNC( MA_DECODER_GET_LENGTH_IN_PCM_FRAMES ) {
+
+   ma_device * pDevice = (ma_device*) hb_parptr( 1 );
+   udata *pUData = (udata*)pDevice->pUserData;
+   ma_uint64 length;
+
+   ma_decoder_get_length_in_pcm_frames( (ma_decoder *)(pUData->pCoder), &length );
+   hb_retnl( length );
+}
+
+HB_FUNC( MA_DECODER_GET_CURSOR_IN_PCM_FRAMES ) {
+
+   ma_device * pDevice = (ma_device*) hb_parptr( 1 );
+   udata *pUData = (udata*)pDevice->pUserData;
+   ma_uint64 cursor;
+
+   ma_decoder_get_cursor_in_pcm_frames( (ma_decoder *)(pUData->pCoder), &cursor );
+   hb_retnl( (long) cursor );
+}
+
+void data_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount)
+{
+   udata *pUData = (udata*)pDevice->pUserData;
+   if( pUData == NULL ) return;
+   ma_decoder* pDecoder = (ma_decoder*)(pUData->pCoder);
+   if( pDecoder == NULL ) return;
+
+   if( pUData->pSym_onEvent ) {
+      hb_vmPushDynSym( pUData->pSym_onEvent );
+      hb_vmPushNil();
+      hb_vmPushPointer( ( void * )pOutput );
+      hb_vmDo( 1 );
+   }
+
+   ma_uint64 framesRead;
+   ma_decoder_read_pcm_frames( pDecoder, pOutput, frameCount, &framesRead );
+   if( frameCount > framesRead )
+      pUData->bPlaying = 0;
+
+   (void)pInput;
+}
+
+/* ma_device_init( cFile, cCallBackName )
  */
 HB_FUNC( MA_DEVICE_INIT ) {
 
@@ -432,7 +485,7 @@ HB_FUNC( MA_DEVICE_INIT ) {
    ma_device_config deviceConfig;
    ma_device * pDevice;
    ma_decoder * pDecoder;
-   udevice * uDevice;
+   udata   * pUData;
 
    pDecoder = (ma_decoder *) hb_xgrab( sizeof(ma_decoder) );
    result = ma_decoder_init_file( hb_parc(1), NULL, pDecoder );
@@ -442,67 +495,92 @@ HB_FUNC( MA_DEVICE_INIT ) {
       return;
    }
 
+   pUData = (udata *) hb_xgrab( sizeof(udata) );
+   memset( pUData, 0, sizeof(udata) );
+   pUData->pCoder = (void*)pDecoder;
+
    deviceConfig = ma_device_config_init( ma_device_type_playback );
    deviceConfig.playback.format   = pDecoder->outputFormat;
    deviceConfig.playback.channels = pDecoder->outputChannels;
    deviceConfig.sampleRate        = pDecoder->outputSampleRate;
    deviceConfig.dataCallback      = data_callback;
-   deviceConfig.pUserData         = pDecoder;
+   deviceConfig.pUserData         = pUData;
 
    pDevice = (ma_device *) hb_xgrab( sizeof(ma_device) );
    if (ma_device_init( NULL, &deviceConfig, pDevice ) != MA_SUCCESS) {
       hb_xfree( pDevice );
       ma_decoder_uninit( pDecoder );
       hb_xfree( pDecoder );
+      hb_xfree( pUData );
       hb_ret();
       return;
    }
 
-   uDevice = (udevice *) hb_xgrab( sizeof(udevice) );
-   memset( uDevice, 0, sizeof(udevice) );
-   uDevice->pCoder = (void*)pDecoder;
-   uDevice->pDevice = pDevice;
-   hb_retptr( (void*) uDevice );
+   if( HB_ISCHAR(2) ) {
+      pUData->pSym_onEvent = hb_dynsymFindName( hb_parc(2) );
+      if( !hb_dynsymIsFunction( pUData->pSym_onEvent ) )
+         pUData->pSym_onEvent = NULL;
+   }
 
+   hb_retptr( (void*) pDevice );
 }
 
 HB_FUNC( MA_DEVICE_UNINIT ) {
 
-   udevice * uDevice = (udevice*) hb_parptr( 1 );
+   ma_device * pDevice = (ma_device*) hb_parptr( 1 );
+   udata *pUData = (udata*)pDevice->pUserData;
 
-   ma_decoder_uninit( (ma_decoder *)uDevice->pCoder );
-   ma_device_uninit( uDevice->pDevice );
-   hb_xfree( (ma_decoder *)(uDevice->pCoder) );
-   hb_xfree( uDevice->pDevice );
-   hb_xfree( uDevice );
+   ma_decoder_uninit( (ma_decoder *)(pUData->pCoder) );
+   ma_device_uninit( pDevice );
+   hb_xfree( (ma_decoder *)(pUData->pCoder) );
+   hb_xfree( pUData );
+   hb_xfree( pDevice );
 }
 
 HB_FUNC( MA_DEVICE_START ) {
 
-   udevice * uDevice = (udevice*) hb_parptr( 1 );
+   ma_device * pDevice = (ma_device*) hb_parptr( 1 );
 
-   hb_retni( ma_device_start( uDevice->pDevice ) );
-
+   ((udata*)pDevice->pUserData)->bPlaying = 1;
+   hb_retni( ma_device_start( pDevice ) );
 }
 
 HB_FUNC( MA_DEVICE_STOP ) {
 
-   udevice * uDevice = (udevice*) hb_parptr( 1 );
+   ma_device * pDevice = (ma_device*) hb_parptr( 1 );
 
-   hb_retni( ma_device_stop( uDevice->pDevice ) );
+   ((udata*)pDevice->pUserData)->bPlaying = 0;
+   hb_retni( ma_device_stop( pDevice ) );
+}
 
+HB_FUNC( MA_DEVICE_IS_PLAYING ) {
+
+   ma_device * pDevice = (ma_device*) hb_parptr( 1 );
+   hb_retl( ((udata*)pDevice->pUserData)->bPlaying );
 }
 
 // Callback function, called when receiving data from the microphone
 void data_capture_callback( ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount )
 {
+   udata *pUData = (udata*)pDevice->pUserData;
+   if( pUData == NULL ) return;
+   ma_encoder* pEncoder = (ma_encoder*)(pUData->pCoder);
+   if( pEncoder == NULL ) return;
+
+   if( pUData->pSym_onEvent ) {
+      hb_vmPushDynSym( pUData->pSym_onEvent );
+      hb_vmPushNil();
+      hb_vmPushPointer( ( void * )pInput );
+      hb_vmDo( 1 );
+      //return hb_parni( -1 );
+   }
     // Write the received data to the encoder (which saves it to a file)
-    ma_encoder_write_pcm_frames( (ma_encoder*)pDevice->pUserData, pInput, frameCount, NULL );
+    ma_encoder_write_pcm_frames( pEncoder, pInput, frameCount, NULL );
 
     (void)pOutput;
 }
 
-/* ma_device_capture_init( cFile, nSampleRate, nChannels )
+/* ma_device_capture_init( cFile, nSampleRate, nChannels, cCallBackName )
  */
 HB_FUNC( MA_DEVICE_CAPTURE_INIT ) {
 
@@ -514,7 +592,7 @@ HB_FUNC( MA_DEVICE_CAPTURE_INIT ) {
    ma_device * pDevice;
    ma_encoder_config encoderConfig;
    ma_encoder *pEncoder;
-   udevice * uDevice;
+   udata   * pUData;
 
    // Configuring the encoder to save to a WAV file
    encoderConfig = ma_encoder_config_init( ma_encoding_format_wav, ma_format_s16, channels, sampleRate );
@@ -526,12 +604,16 @@ HB_FUNC( MA_DEVICE_CAPTURE_INIT ) {
       return;
    }
 
+   pUData = (udata *) hb_xgrab( sizeof(udata) );
+   memset( pUData, 0, sizeof(udata) );
+   pUData->pCoder = (void*)pEncoder;
+
    // Configuring the capture device
    deviceConfig = ma_device_config_init( ma_device_type_capture );
    deviceConfig.capture.format   = ma_format_s16;
    deviceConfig.capture.channels = channels;
    deviceConfig.sampleRate       = sampleRate;
-   deviceConfig.pUserData        = pEncoder;
+   deviceConfig.pUserData        = pUData;
    deviceConfig.dataCallback     = data_capture_callback;
 
    // Initializing the device
@@ -541,26 +623,31 @@ HB_FUNC( MA_DEVICE_CAPTURE_INIT ) {
       hb_xfree( pDevice );
       ma_encoder_uninit( pEncoder );
       hb_xfree( pEncoder );
+      hb_xfree( pUData );
       hb_ret();
       return;
    }
 
-   uDevice = (udevice *) hb_xgrab( sizeof(udevice) );
-   memset( uDevice, 0, sizeof(udevice) );
-   uDevice->pCoder = (void*)pEncoder;
-   uDevice->pDevice = pDevice;
-   hb_retptr( (void*) uDevice );
+   if( HB_ISCHAR(4) ) {
+      pUData->pSym_onEvent = hb_dynsymFindName( hb_parc(4) );
+      if( !hb_dynsymIsFunction( pUData->pSym_onEvent ) )
+         pUData->pSym_onEvent = NULL;
+   }
+
+   hb_retptr( (void*) pDevice );
 }
 
 HB_FUNC( MA_DEVICE_CAPTURE_UNINIT ) {
 
-   udevice * uDevice = (udevice*) hb_parptr( 1 );
+   ma_device * pDevice = (ma_device*) hb_parptr( 1 );
+   udata *pUData = (udata*)pDevice->pUserData;
 
-   ma_encoder_uninit( (ma_encoder *)uDevice->pCoder );
-   ma_device_uninit( uDevice->pDevice );
-   hb_xfree( (ma_encoder *)(uDevice->pCoder) );
-   hb_xfree( uDevice->pDevice );
-   hb_xfree( uDevice );
+   ma_encoder_uninit( (ma_encoder *)(pUData->pCoder) );
+   ma_device_uninit( pDevice );
+   hb_xfree( (ma_encoder *)(pUData->pCoder) );
+   hb_xfree( pUData );
+   hb_xfree( pDevice );
+
 }
 
 HB_FUNC( MA_SLEEP ) {
