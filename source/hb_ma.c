@@ -19,8 +19,7 @@ typedef struct
    short int    bPlaying;
 } udata;
 
-void c_writelog( const char * sFile, const char * sTraceMsg, ... )
-{
+void c_writelog( const char * sFile, const char * sTraceMsg, ... ) {
    FILE *hFile;
 
    if( sFile == NULL )
@@ -42,6 +41,97 @@ void c_writelog( const char * sFile, const char * sTraceMsg, ... )
 
       fclose( hFile );
    }
+}
+
+float sample_to_float( const void* pSample, ma_format format ) {
+
+    float result;
+
+    switch (format) {
+        case ma_format_f32: {
+            result = *((float*)pSample);
+            break;
+        }
+        case ma_format_s16: {
+            result = ( *((int16_t*)pSample) ) / 32768.0f;
+            break;
+        }
+        case ma_format_s24: {
+            int32_t val = *((int32_t*)pSample);
+            val <<= 8;
+            result = val / 2147483648.0f;
+            break;
+        }
+        case ma_format_s32: {
+            result = ( *((int32_t*)pSample) ) / 2147483648.0f;
+            break;
+        }
+        case ma_format_u8: {
+            result = ( *((uint8_t*)pSample) - 128 ) / 128.0f;
+            break;
+        }
+        default:
+            result = 0.0f;
+    }
+
+    return (result > 1.0f)? 1.0f : ( (result < -1.0f)? -1.0f : result );
+}
+
+void float_to_sample( void* pSample, ma_format format, float value ) {
+
+    if (value > 1.0f) value = 1.0f;
+    if (value < -1.0f) value = -1.0f;
+
+    switch (format) {
+        case ma_format_f32: {
+            *((float*)pSample) = value;
+            break;
+        }
+        case ma_format_s16: {
+            int16_t int_val;
+            if (value >= 0) {
+                int_val = (int16_t)(value * 32767.0f + 0.5f);
+            } else {
+                int_val = (int16_t)(value * 32768.0f - 0.5f);
+            }
+            *((int16_t*)pSample) = int_val;
+            break;
+        }
+        case ma_format_s24: {
+            int32_t int_val;
+            if (value >= 0) {
+                int_val = (int32_t)(value * 8388607.0f + 0.5f);  // 2^23 - 1
+            } else {
+                int_val = (int32_t)(value * 8388608.0f - 0.5f);  // 2^23
+            }
+            int_val <<= 8;
+            *((int32_t*)pSample) = int_val;
+            break;
+        }
+        case ma_format_s32: {
+            int32_t int_val;
+            if (value >= 0) {
+                int_val = (int32_t)(value * 2147483647.0 + 0.5);  // 2^31 - 1
+            } else {
+                int_val = (int32_t)(value * 2147483648.0 - 0.5);  // 2^31
+            }
+            *((int32_t*)pSample) = int_val;
+            break;
+        }
+        case ma_format_u8: {
+            uint8_t uint_val;
+            if (value >= 0) {
+                uint_val = (uint8_t)(value * 127.0f + 128.5f);
+            } else {
+                uint_val = (uint8_t)(value * 127.0f + 127.5f);
+            }
+            if (uint_val > 255) uint_val = 255;
+            *((uint8_t*)pSample) = uint_val;
+            break;
+        }
+        default:
+            break;
+    }
 }
 
 HB_FUNC( MA_ENGINE_INIT ) {
@@ -203,11 +293,9 @@ HB_FUNC( MA_SOUND_READ_PCM_FRAMES ) {
 
    ma_sound * pSound = (ma_sound*) hb_parptr( 1 );
    ma_uint64 framesToRead = hb_parnl( 4 ), i;
-   ma_uint32 channels = 1, j;
+   ma_uint32 channels = 1;
    ma_uint64 nRead = 0;
-   //ma_result result;
-   //float* pBuffer;
-   float * pOut;
+   char *pBuffer, *pSample;
    PHB_ITEM pArr, pSubArr;
    HB_TYPE type;
    int bArr;
@@ -222,51 +310,34 @@ HB_FUNC( MA_SOUND_READ_PCM_FRAMES ) {
    if( !HB_ISNIL(3) )
       ma_data_source_seek_to_pcm_frame( pDataSource, hb_parnl( 3 ) );
 
-/*
-   ma_sound_get_data_format( pSound, NULL, &channels, NULL, NULL, 0 );
-   pBuffer = malloc( framesToRead * channels * sizeof(float) );
-*/
    ma_format format;
    ma_uint32 sampleRate;
 
    ma_data_source_get_data_format( pDataSource, &format, &channels, &sampleRate, NULL, 0 );
 
    ma_uint32 bytesPerFrame = ma_get_bytes_per_frame( format, channels );
+   ma_uint32 bytesPerChannel = bytesPerFrame / channels;
    size_t bufferSize = (size_t)( framesToRead * bytesPerFrame );
-   void* pBuffer = malloc( bufferSize );
+   pBuffer = malloc( bufferSize );
 
-   ma_data_source_read_pcm_frames( pDataSource, pBuffer, framesToRead, &nRead );
+   ma_data_source_read_pcm_frames( pDataSource, (void*)pBuffer, framesToRead, &nRead );
    //c_writelog( NULL, "read_frames-1 %lu %d %d\n", hb_parnl(3), result, nRead );
 
-   float globalMin = 1000.0f;
-   float globalMax = -1000.0f;
-
    if( nRead ) {
-      //if( channels > 1 )
-      //   nRead /= channels;
-      pOut = (float*)pBuffer;
-      for( i = 1; i <= nRead && i+1 <= lArrLen; i += 1 )
+      pSample = pBuffer;
+      for( i = 0; i < nRead && i+1 <= lArrLen; i ++, pSample += bytesPerFrame )
       {
          if( bArr )
          {
             pSubArr = hb_arrayGetItemPtr( pArr, i+1 );
-            for( j = 1; j <= channels; j++, pOut++ ) {
-               if (*pOut < globalMin) globalMin = *pOut;
-               if (*pOut > globalMax) globalMax = *pOut;
-               hb_arraySetND( pSubArr, j, (double) *pOut );
-            }
+            hb_arraySetND( pSubArr, 1, (double) sample_to_float( (float*)pSample, format ) );
+            hb_arraySetND( pSubArr, 2, (double) sample_to_float(
+               (float*)(pSample+bytesPerChannel), format ) );
          }
          else
-         {
-            if (*pOut < globalMin) globalMin = *pOut;
-            if (*pOut > globalMax) globalMax = *pOut;
-            hb_arraySetND( pArr, i+1, (double) *pOut );
-            pOut ++;
-         }
+            hb_arraySetND( pArr, i+1, (double) sample_to_float( (float*)pSample, format ) );
       }
    }
-
-   //c_writelog( NULL, "read_frames-1 %lu %d %d %f %f\n", hb_parnl(3), result, nRead, globalMin, globalMax );
 
    free( pBuffer );
    hb_retnl( nRead );
@@ -413,6 +484,38 @@ HB_FUNC( MA_GETRANGE ) {
 
 }
 
+/* ma_get_pcm_frame( cArr, nFormat, nChannels, nFrame[, @dSecond] ) -> dValue
+ */
+HB_FUNC( MA_GET_PCM_FRAME ) {
+
+   char *pSample;
+   ma_format format = (ma_format) hb_parni( 2 );
+   ma_uint32 channels = (ma_uint32) hb_parni( 3 );
+   ma_uint32 bytesPerFrame = ma_get_bytes_per_frame( format, channels );
+
+   pSample = (char *) hb_parptr( 1 ) + ( hb_parnl(4) - 1 ) * bytesPerFrame;
+
+   if( hb_pcount() > 4 )
+      hb_stornd( (double) sample_to_float( (float*)(pSample + bytesPerFrame/channels), format ), 5 );
+   hb_retnd( (double) sample_to_float( (float*)pSample, format ) );
+}
+
+/* ma_set_pcm_frame( cArr, nFormat, nChannels, nFrame, dValue1[, dValue2] )
+ */
+HB_FUNC( MA_SET_PCM_FRAME ) {
+
+   char *pSample;
+   ma_format format = (ma_format) hb_parni( 2 );
+   ma_uint32 channels = (ma_uint32) hb_parni( 3 );
+   ma_uint32 bytesPerFrame = ma_get_bytes_per_frame( format, channels );
+
+   pSample = (char *) hb_parptr( 1 ) + ( hb_parnl(4) - 1 ) * bytesPerFrame;
+
+   float_to_sample( (void*) pSample, format, hb_parnd( 5 ) );
+   if( hb_pcount() > 5 )
+      float_to_sample( (void*) (pSample + bytesPerFrame/channels), format, hb_parnd( 6 ) );
+}
+
 HB_FUNC( MA_DECODER_GET_SAMPLE_RATE ) {
 
    ma_device * pDevice = (ma_device*) hb_parptr( 1 );
@@ -462,17 +565,18 @@ void data_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uin
    ma_decoder* pDecoder = (ma_decoder*)(pUData->pCoder);
    if( pDecoder == NULL ) return;
 
-   if( pUData->pSym_onEvent ) {
-      hb_vmPushDynSym( pUData->pSym_onEvent );
-      hb_vmPushNil();
-      hb_vmPushPointer( ( void * )pOutput );
-      hb_vmDo( 1 );
-   }
-
    ma_uint64 framesRead;
    ma_decoder_read_pcm_frames( pDecoder, pOutput, frameCount, &framesRead );
    if( frameCount > framesRead )
       pUData->bPlaying = 0;
+
+   if( pUData->pSym_onEvent ) {
+      hb_vmPushDynSym( pUData->pSym_onEvent );
+      hb_vmPushNil();
+      hb_vmPushPointer( ( void * )pOutput );
+      hb_vmPushLong( framesRead );
+      hb_vmDo( 2 );
+   }
 
    (void)pInput;
 }
@@ -586,7 +690,8 @@ void data_capture_callback( ma_device* pDevice, void* pOutput, const void* pInpu
       hb_vmPushDynSym( pUData->pSym_onEvent );
       hb_vmPushNil();
       hb_vmPushPointer( ( void * )pInput );
-      hb_vmDo( 1 );
+      hb_vmPushLong( frameCount );
+      hb_vmDo( 2 );
       //return hb_parni( -1 );
    }
     // Write the received data to the encoder (which saves it to a file)
