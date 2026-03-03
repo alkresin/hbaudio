@@ -1,6 +1,7 @@
 
 {win}c_compiler=mingw
 guilib=
+{win}libs=pthread
 {unix}libs=pthread m
 
 {unix}def_lflags=-O3 -s

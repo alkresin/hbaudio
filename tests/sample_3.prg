@@ -15,7 +15,7 @@ STATIC pDevice := Nil
 
 FUNCTION Main( cFile )
 
-   LOCAL nRate, nFrames, nKey, lStopped := .F., lExit := .F.
+   LOCAL pDecoder, aInfo, nFrames, nKey, lStopped := .F., lExit := .F.
 
    SET CURSOR OFF
 
@@ -28,15 +28,16 @@ FUNCTION Main( cFile )
    ENDIF
 
    ? "Start!"
-   IF Empty( pDevice := ma_Device_Init( cFile ) )
+   IF Empty( pDevice := ma_device_playback_init( cFile ) )
       ? "ma_Device_Init() failed"
       RETURN Nil
    ENDIF
 
-   nRate := ma_decoder_get_sample_rate( pDevice )
-   nFrames := ma_decoder_get_length_in_pcm_frames( pDevice )
+   pDecoder := ma_device_get_decoder( pDevice )
+   aInfo := ma_decoder_get_info( pDecoder )
+   nFrames := ma_decoder_get_length_in_pcm_frames( pDecoder )
 
-   ? nFrames/nRate, "seconds"
+   ? nFrames/aInfo[3], "seconds"
    ? "Playing... "
    ma_device_start( pDevice )
 
@@ -51,7 +52,7 @@ FUNCTION Main( cFile )
             ma_device_stop( pDevice )
             lStopped := .T.
          ENDIF
-         PrintProgress( ma_decoder_get_cursor_in_pcm_frames( pDevice ) * 100 / nFrames )
+         PrintProgress( ma_decoder_get_cursor_in_pcm_frames( pDecoder ) * 100 / nFrames )
       ENDDO
       IF lStopped
          DO WHILE .T.
@@ -69,7 +70,7 @@ FUNCTION Main( cFile )
          EXIT
       ENDIF
    ENDDO
-   ma_device_uninit( pDevice )
+   ma_device_playback_uninit( pDevice )
 
    RETURN Nil
 

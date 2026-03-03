@@ -15,7 +15,7 @@
 typedef struct
 {
    void          *pCoder;
-   PHB_DYNS pSym_onEvent;
+   //PHB_DYNS pSym_onEvent;
    short int    bPlaying;
 } udata;
 
@@ -484,6 +484,12 @@ HB_FUNC( MA_GETRANGE ) {
 
 }
 
+HB_FUNC( MA_GET_BYTES_PER_FRAME ) {
+
+   hb_retni( ma_get_bytes_per_frame( hb_parni( 1 ), hb_parni( 2 ) ) );
+
+}
+
 /* ma_get_pcm_frame( cArr, nFormat, nChannels, nFrame[, @dSecond] ) -> dValue
  */
 HB_FUNC( MA_GET_PCM_FRAME ) {
@@ -493,7 +499,7 @@ HB_FUNC( MA_GET_PCM_FRAME ) {
    ma_uint32 channels = (ma_uint32) hb_parni( 3 );
    ma_uint32 bytesPerFrame = ma_get_bytes_per_frame( format, channels );
 
-   pSample = (char *) hb_parptr( 1 ) + ( hb_parnl(4) - 1 ) * bytesPerFrame;
+   pSample = ((char *) hb_parptr( 1 )) + ( hb_parnl(4) - 1 ) * bytesPerFrame;
 
    if( hb_pcount() > 4 )
       hb_stornd( (double) sample_to_float( (float*)(pSample + bytesPerFrame/channels), format ), 5 );
@@ -516,46 +522,142 @@ HB_FUNC( MA_SET_PCM_FRAME ) {
       float_to_sample( (void*) (pSample + bytesPerFrame/channels), format, hb_parnd( 6 ) );
 }
 
-HB_FUNC( MA_DECODER_GET_SAMPLE_RATE ) {
+/* ma_encoder_init( cFile, nFormat, nChannels, nSampleRate ) -> pEncoder
+ */
+HB_FUNC( MA_ENCODER_INIT ) {
+
+   ma_encoder_config encoderConfig;
+   ma_encoder *pEncoder;
+   ma_result result;
+
+   encoderConfig = ma_encoder_config_init( ma_encoding_format_wav, (ma_format) hb_parni( 2 ),
+      (ma_uint32) hb_parni( 3 ), (ma_uint32) hb_parni( 4 ) );
+   pEncoder = (ma_encoder *) hb_xgrab( sizeof(ma_encoder) );
+   result = ma_encoder_init_file( hb_parc(1), &encoderConfig, pEncoder );
+   if (result != MA_SUCCESS) {
+      hb_xfree( pEncoder );
+      hb_ret();
+      return;
+   }
+   hb_retptr( pEncoder );
+}
+
+HB_FUNC( MA_ENCODER_UNINIT ) {
+
+   ma_encoder * pEncoder = (ma_encoder*) hb_parptr( 1 );
+   ma_encoder_uninit( pEncoder );
+   hb_xfree( pEncoder );
+}
+
+HB_FUNC( MA_ENCODER_WRITE_PCM_FRAMES ) {
+
+   ma_encoder * pEncoder = (ma_encoder*) hb_parptr( 1 );
+   ma_result result;
+   ma_uint64 frames_encoded = 0;
+
+   result = ma_encoder_write_pcm_frames( pEncoder, (void*)hb_parc(2), hb_parnl(3), &frames_encoded );
+   if (result != MA_SUCCESS )
+      hb_retnl( -1 );
+   else
+      hb_retnl( frames_encoded );
+
+}
+
+HB_FUNC( MA_DEVICE_GET_DECODER ) {
 
    ma_device * pDevice = (ma_device*) hb_parptr( 1 );
    udata *pUData = (udata*)pDevice->pUserData;
+
+   hb_retptr( pUData->pCoder );
+}
+
+HB_FUNC( MA_DECODER_INIT ) {
+
+   ma_decoder * pDecoder = (ma_decoder *) hb_xgrab( sizeof(ma_decoder) );
+   ma_result result;
+
+   result = ma_decoder_init_file( hb_parc(1), NULL, pDecoder );
+   if (result != MA_SUCCESS) {
+      hb_xfree( pDecoder );
+      hb_ret();
+      return;
+   }
+   hb_retptr( pDecoder );
+
+}
+
+HB_FUNC( MA_DECODER_UNINIT ) {
+
+   ma_decoder * pDecoder = (ma_decoder*) hb_parptr( 1 );
+   ma_decoder_uninit( pDecoder );
+   hb_xfree( pDecoder );
+}
+
+HB_FUNC( MA_DECODER_GET_INFO ) {
+
+   ma_decoder * pDecoder = (ma_decoder*) hb_parptr( 1 );
+   ma_format format;
+   ma_uint32 channels;
+   ma_uint32 sampleRate;
+   PHB_ITEM aInfo = hb_itemArrayNew( 3 );
+
+   ma_decoder_get_data_format( pDecoder, &format, &channels, &sampleRate, NULL, 0 );
+
+   hb_itemPutNL( hb_arrayGetItemPtr( aInfo, 1 ), format );
+   hb_itemPutNL( hb_arrayGetItemPtr( aInfo, 2 ), channels );
+   hb_itemPutNL( hb_arrayGetItemPtr( aInfo, 3 ), sampleRate );
+   hb_itemRelease( hb_itemReturn( aInfo ) );
+
+}
+
+HB_FUNC( MA_DECODER_GET_SAMPLE_RATE ) {
+
+   ma_decoder * pDecoder = (ma_decoder*) hb_parptr( 1 );
    ma_uint32 sampleRate;
 
-   ma_decoder_get_data_format( (ma_decoder *)(pUData->pCoder),
-      NULL, NULL, &sampleRate, NULL, 0 );
+   ma_decoder_get_data_format( pDecoder, NULL, NULL, &sampleRate, NULL, 0 );
    hb_retnl( sampleRate );
 }
 
 HB_FUNC( MA_DECODER_GET_CHANNELS ) {
 
-   ma_device * pDevice = (ma_device*) hb_parptr( 1 );
-   udata *pUData = (udata*)pDevice->pUserData;
+   ma_decoder * pDecoder = (ma_decoder*) hb_parptr( 1 );
    ma_uint32 channels;
 
-   ma_decoder_get_data_format( (ma_decoder *)(pUData->pCoder),
-      NULL, &channels, NULL, NULL, 0 );
+   ma_decoder_get_data_format( pDecoder, NULL, &channels, NULL, NULL, 0 );
    hb_retnl( channels );
 }
 
 HB_FUNC( MA_DECODER_GET_LENGTH_IN_PCM_FRAMES ) {
 
-   ma_device * pDevice = (ma_device*) hb_parptr( 1 );
-   udata *pUData = (udata*)pDevice->pUserData;
+   ma_decoder * pDecoder = (ma_decoder*) hb_parptr( 1 );
    ma_uint64 length;
 
-   ma_decoder_get_length_in_pcm_frames( (ma_decoder *)(pUData->pCoder), &length );
+   ma_decoder_get_length_in_pcm_frames( pDecoder, &length );
    hb_retnl( length );
 }
 
 HB_FUNC( MA_DECODER_GET_CURSOR_IN_PCM_FRAMES ) {
 
-   ma_device * pDevice = (ma_device*) hb_parptr( 1 );
-   udata *pUData = (udata*)pDevice->pUserData;
+   ma_decoder * pDecoder = (ma_decoder*) hb_parptr( 1 );
    ma_uint64 cursor;
 
-   ma_decoder_get_cursor_in_pcm_frames( (ma_decoder *)(pUData->pCoder), &cursor );
+   ma_decoder_get_cursor_in_pcm_frames( pDecoder, &cursor );
    hb_retnl( (long) cursor );
+}
+
+HB_FUNC( MA_DECODER_READ_PCM_FRAMES ) {
+
+   ma_decoder * pDecoder = (ma_decoder*) hb_parptr( 1 );
+   ma_result result;
+   ma_uint64 frames_read = 0;
+
+   result = ma_decoder_read_pcm_frames( pDecoder, (void*)hb_parc(2), hb_parnl(3), &frames_read );
+   if (result != MA_SUCCESS && result != MA_AT_END)
+      hb_retnl( -1 );
+   else
+      hb_retnl( frames_read );
+
 }
 
 void data_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount)
@@ -569,7 +671,7 @@ void data_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uin
    ma_decoder_read_pcm_frames( pDecoder, pOutput, frameCount, &framesRead );
    if( frameCount > framesRead )
       pUData->bPlaying = 0;
-
+/*
    if( pUData->pSym_onEvent ) {
       hb_vmPushDynSym( pUData->pSym_onEvent );
       hb_vmPushNil();
@@ -577,13 +679,13 @@ void data_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uin
       hb_vmPushLong( framesRead );
       hb_vmDo( 2 );
    }
-
+*/
    (void)pInput;
 }
 
-/* ma_device_init( cFile, cCallBackName )
+/* ma_device_init( cFile )
  */
-HB_FUNC( MA_DEVICE_INIT ) {
+HB_FUNC( MA_DEVICE_PLAYBACK_INIT ) {
 
    ma_result result;
    ma_device_config deviceConfig;
@@ -619,17 +721,17 @@ HB_FUNC( MA_DEVICE_INIT ) {
       hb_ret();
       return;
    }
-
+/*
    if( HB_ISCHAR(2) ) {
       pUData->pSym_onEvent = hb_dynsymFindName( hb_parc(2) );
       if( !hb_dynsymIsFunction( pUData->pSym_onEvent ) )
          pUData->pSym_onEvent = NULL;
    }
-
+*/
    hb_retptr( (void*) pDevice );
 }
 
-HB_FUNC( MA_DEVICE_UNINIT ) {
+HB_FUNC( MA_DEVICE_PLAYBACK_UNINIT ) {
 
    ma_device * pDevice = (ma_device*) hb_parptr( 1 );
    udata *pUData = (udata*)pDevice->pUserData;
@@ -685,7 +787,7 @@ void data_capture_callback( ma_device* pDevice, void* pOutput, const void* pInpu
    if( pUData == NULL ) return;
    ma_encoder* pEncoder = (ma_encoder*)(pUData->pCoder);
    if( pEncoder == NULL ) return;
-
+/*
    if( pUData->pSym_onEvent ) {
       hb_vmPushDynSym( pUData->pSym_onEvent );
       hb_vmPushNil();
@@ -694,13 +796,14 @@ void data_capture_callback( ma_device* pDevice, void* pOutput, const void* pInpu
       hb_vmDo( 2 );
       //return hb_parni( -1 );
    }
+*/
     // Write the received data to the encoder (which saves it to a file)
     ma_encoder_write_pcm_frames( pEncoder, pInput, frameCount, NULL );
 
     (void)pOutput;
 }
 
-/* ma_device_capture_init( cFile, nSampleRate, nChannels, cCallBackName )
+/* ma_device_capture_init( cFile, nSampleRate, nChannels )
  */
 HB_FUNC( MA_DEVICE_CAPTURE_INIT ) {
 
@@ -747,13 +850,13 @@ HB_FUNC( MA_DEVICE_CAPTURE_INIT ) {
       hb_ret();
       return;
    }
-
+/*
    if( HB_ISCHAR(4) ) {
       pUData->pSym_onEvent = hb_dynsymFindName( hb_parc(4) );
       if( !hb_dynsymIsFunction( pUData->pSym_onEvent ) )
          pUData->pSym_onEvent = NULL;
    }
-
+*/
    hb_retptr( (void*) pDevice );
 }
 
@@ -768,6 +871,48 @@ HB_FUNC( MA_DEVICE_CAPTURE_UNINIT ) {
    hb_xfree( pUData );
    hb_xfree( pDevice );
 
+}
+
+HB_FUNC( MA_RESAMPLER_INIT ) {
+
+   ma_resampler *pResampler;
+   ma_result result;
+
+   ma_resampler_config resampler_config = ma_resampler_config_init(
+      (ma_format) hb_parni( 1 ), (ma_uint32) hb_parni( 2 ), (ma_uint32) hb_parni( 3 ),
+      (ma_uint32) hb_parni( 4 ), ma_resample_algorithm_linear );
+
+   pResampler = (ma_resampler *) hb_xgrab( sizeof(ma_resampler) );
+   result = ma_resampler_init( &resampler_config, NULL, pResampler );
+   if (result != MA_SUCCESS) {
+      hb_ret();
+      return;
+   }
+   hb_retptr( pResampler );
+}
+
+HB_FUNC( MA_RESAMPLER_UNINIT ) {
+
+   ma_resampler *pResampler = (ma_resampler *) hb_parptr( 1 );
+
+   ma_resampler_uninit( pResampler, NULL );
+   hb_xfree( pResampler );
+}
+
+HB_FUNC( MA_RESAMPLER_PROCESS_PCM_FRAMES ) {
+
+   ma_resampler *pResampler = (ma_resampler *) hb_parptr( 1 );
+   ma_result result;
+   ma_uint64 frames_read = hb_parnl( 4 );
+   ma_uint64 frames_written = hb_parnl( 5 );
+
+   result = ma_resampler_process_pcm_frames( pResampler, (void*) hb_parc(2),
+      &frames_read, (void*) hb_parc(3), &frames_written );
+
+   if (result != MA_SUCCESS)
+      hb_retnl( -1 );
+   else
+      hb_retnl( frames_written );
 }
 
 HB_FUNC( MA_SLEEP ) {
