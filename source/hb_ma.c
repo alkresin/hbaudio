@@ -549,6 +549,8 @@ HB_FUNC( MA_ENCODER_UNINIT ) {
    hb_xfree( pEncoder );
 }
 
+/* ma_encoder_write_pcm_frames( pEncoder,cBuffer, nFrames ) -> nFramesSaved
+ */
 HB_FUNC( MA_ENCODER_WRITE_PCM_FRAMES ) {
 
    ma_encoder * pEncoder = (ma_encoder*) hb_parptr( 1 );
@@ -646,6 +648,8 @@ HB_FUNC( MA_DECODER_GET_CURSOR_IN_PCM_FRAMES ) {
    hb_retnl( (long) cursor );
 }
 
+/*  ma_decoder_read_pcm_frames( pDecoder, cInputBuff, nFramesIn ) -> nRead
+ */
 HB_FUNC( MA_DECODER_READ_PCM_FRAMES ) {
 
    ma_decoder * pDecoder = (ma_decoder*) hb_parptr( 1 );
@@ -899,6 +903,8 @@ HB_FUNC( MA_RESAMPLER_UNINIT ) {
    hb_xfree( pResampler );
 }
 
+/*  ma_resampler_process_pcm_frames( pResampler, cBuffIn, cBuffOut, nFramesIn, nFramesOut ) -> nFramesWrittin
+ */
 HB_FUNC( MA_RESAMPLER_PROCESS_PCM_FRAMES ) {
 
    ma_resampler *pResampler = (ma_resampler *) hb_parptr( 1 );
