@@ -6,6 +6,7 @@
  */
 
 #define MINIAUDIO_IMPLEMENTATION
+#define MA_NO_CUSTOM
 #include "miniaudio.h"
 
 #include "hbvm.h"
@@ -687,7 +688,7 @@ void data_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uin
    (void)pInput;
 }
 
-/* ma_device_init( cFile )
+/* ma_device_playback_init( cFile ) -> pDevice
  */
 HB_FUNC( MA_DEVICE_PLAYBACK_INIT ) {
 
@@ -735,6 +736,8 @@ HB_FUNC( MA_DEVICE_PLAYBACK_INIT ) {
    hb_retptr( (void*) pDevice );
 }
 
+/* ma_device_playback_uninit( pDevice ) -> Nil
+ */
 HB_FUNC( MA_DEVICE_PLAYBACK_UNINIT ) {
 
    ma_device * pDevice = (ma_device*) hb_parptr( 1 );
@@ -747,6 +750,8 @@ HB_FUNC( MA_DEVICE_PLAYBACK_UNINIT ) {
    hb_xfree( pDevice );
 }
 
+/* ma_device_start( pDevice ) -> nResult
+ */
 HB_FUNC( MA_DEVICE_START ) {
 
    ma_device * pDevice = (ma_device*) hb_parptr( 1 );
@@ -755,6 +760,8 @@ HB_FUNC( MA_DEVICE_START ) {
    hb_retni( ma_device_start( pDevice ) );
 }
 
+/* ma_device_stop( pDevice ) -> nResult
+ */
 HB_FUNC( MA_DEVICE_STOP ) {
 
    ma_device * pDevice = (ma_device*) hb_parptr( 1 );
@@ -763,12 +770,16 @@ HB_FUNC( MA_DEVICE_STOP ) {
    hb_retni( ma_device_stop( pDevice ) );
 }
 
+/* ma_device_is_playing( pDevice ) -> lPlaying
+ */
 HB_FUNC( MA_DEVICE_IS_PLAYING ) {
 
    ma_device * pDevice = (ma_device*) hb_parptr( 1 );
    hb_retl( ((udata*)pDevice->pUserData)->bPlaying );
 }
 
+/* ma_device_get_volume( pDevice ) -> nVolume
+ */
 HB_FUNC( MA_DEVICE_GET_VOLUME ) {
 
    ma_device * pDevice = (ma_device*) hb_parptr( 1 );
@@ -778,6 +789,8 @@ HB_FUNC( MA_DEVICE_GET_VOLUME ) {
    hb_retnd( volume );
 }
 
+/* ma_device_set_volume( pDevice, nVolume )
+ */
 HB_FUNC( MA_DEVICE_SET_VOLUME ) {
 
    ma_device * pDevice = (ma_device*) hb_parptr( 1 );
@@ -807,7 +820,7 @@ void data_capture_callback( ma_device* pDevice, void* pOutput, const void* pInpu
     (void)pOutput;
 }
 
-/* ma_device_capture_init( cFile, nSampleRate, nChannels )
+/* ma_device_capture_init( cFile, nSampleRate, nChannels ) -> pDevice
  */
 HB_FUNC( MA_DEVICE_CAPTURE_INIT ) {
 
@@ -864,6 +877,8 @@ HB_FUNC( MA_DEVICE_CAPTURE_INIT ) {
    hb_retptr( (void*) pDevice );
 }
 
+/* ma_device_capture_uninit( pDevice )
+ */
 HB_FUNC( MA_DEVICE_CAPTURE_UNINIT ) {
 
    ma_device * pDevice = (ma_device*) hb_parptr( 1 );
@@ -877,6 +892,8 @@ HB_FUNC( MA_DEVICE_CAPTURE_UNINIT ) {
 
 }
 
+/* ma_resampler_init( nFormat, nChannels, nSampleRateIn, nSampleRateOut ) -> pResampler
+ */
 HB_FUNC( MA_RESAMPLER_INIT ) {
 
    ma_resampler *pResampler;
@@ -895,6 +912,8 @@ HB_FUNC( MA_RESAMPLER_INIT ) {
    hb_retptr( pResampler );
 }
 
+/* ma_resampler_uninit( pResampler )
+ */
 HB_FUNC( MA_RESAMPLER_UNINIT ) {
 
    ma_resampler *pResampler = (ma_resampler *) hb_parptr( 1 );
@@ -921,6 +940,8 @@ HB_FUNC( MA_RESAMPLER_PROCESS_PCM_FRAMES ) {
       hb_retnl( frames_written );
 }
 
+/* ma_sleep( nMilliseconds )
+ */
 HB_FUNC( MA_SLEEP ) {
 
    ma_sleep( hb_parni(1) );

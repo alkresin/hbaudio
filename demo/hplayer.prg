@@ -157,7 +157,8 @@ METHOD New( oPane, oWnd, aColors, cLastPath, nVolume, lTime, lGraph ) CLASS HPla
    ENDIF
 
    ::oTrack:Value := 0
-   ::oTrack:bEndDrag := bTrack
+   //::oTrack:bEndDrag := bTrack
+   ::oTrack:bChange := bTrack
 
    IF Empty( ::pEngine )
      ::pEngine := ma_Engine_Init()
@@ -238,13 +239,16 @@ METHOD Play() CLASS HPlayer
    DO WHILE ::pSound != Nil .AND. ma_sound_is_playing( ::pSound )
       IF ::nNewPos >= 0
          ma_sound_stop( ::pSound )
-         ma_sleep(5)
+         DO WHILE ma_sound_is_playing( ::pSound )
+            ma_sleep(5)
+         ENDDO
          ma_sound_seek_to_pcm_frame( ::pSound, ::nNewPos )
-         //hwg_writelog( "newpos: " + str(::nNewPos) )
-         //hwg_writelog( "pos: " + str(ma_sound_get_cursor_in_pcm_frames( ::pSound )) )
-         ma_sleep(5)
-         ma_sound_start( ::pSound )
+         n := 10
+         DO WHILE ma_sound_get_cursor_in_pcm_frames( ::pSound ) != ::nNewPos .OR. --n > 0
+            ma_sleep(5)
+         ENDDO
          ::nNewPos := -1
+         ma_sound_start( ::pSound )
       ENDIF
       IF Seconds() - nSec > 0.2
          nSec := Seconds()
