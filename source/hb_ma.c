@@ -7,6 +7,8 @@
 
 #define MINIAUDIO_IMPLEMENTATION
 #define MA_NO_CUSTOM
+//#define MA_SOUND_FLAG_NO_PITCH
+//#define MA_SOUND_FLAG_NO_SPATIALIZATION
 #include "miniaudio.h"
 
 #include "hbvm.h"
@@ -135,6 +137,8 @@ void float_to_sample( void* pSample, ma_format format, float value ) {
     }
 }
 
+/* ma_engine_init() -> pEngine
+ */
 HB_FUNC( MA_ENGINE_INIT ) {
 
    ma_result result;
@@ -156,6 +160,17 @@ HB_FUNC( MA_ENGINE_INIT ) {
 
 }
 
+/* ma_engine_init( pEngine ) -> Nil
+ */
+HB_FUNC( MA_ENGINE_UNINIT ) {
+
+   ma_engine * pEngine = (ma_engine*) hb_parptr( 1 );
+
+   ma_engine_uninit( pEngine );
+}
+
+/* ma_engine_get_sample_rate( pEngine ) -> nRate
+ */
 HB_FUNC( MA_ENGINE_GET_SAMPLE_RATE ) {
 
    ma_engine * pEngine = (ma_engine*) hb_parptr( 1 );
@@ -164,13 +179,8 @@ HB_FUNC( MA_ENGINE_GET_SAMPLE_RATE ) {
    hb_retnd( fRate );
 }
 
-HB_FUNC( MA_ENGINE_UNINIT ) {
-
-   ma_engine * pEngine = (ma_engine*) hb_parptr( 1 );
-
-   ma_engine_uninit( pEngine );
-}
-
+/* ma_engine_set_volume( pEngine, nVolume ) -> Nil
+ */
 HB_FUNC( MA_ENGINE_SET_VOLUME ) {
 
    ma_engine * pEngine = (ma_engine*) hb_parptr( 1 );
@@ -178,6 +188,8 @@ HB_FUNC( MA_ENGINE_SET_VOLUME ) {
    ma_engine_set_volume( pEngine, hb_parnd( 2 ) );
 }
 
+/* ma_engine_get_volume( pEngine ) -> nVolume
+ */
 HB_FUNC( MA_ENGINE_GET_VOLUME ) {
 
    ma_engine * pEngine = (ma_engine*) hb_parptr( 1 );
@@ -185,7 +197,7 @@ HB_FUNC( MA_ENGINE_GET_VOLUME ) {
    hb_retnd( ma_engine_get_volume( pEngine ) );
 }
 
-/* ma_Sound_Init( pEngine, cFile, lToDecodeOnly )
+/* ma_Sound_Init( pEngine, cFile, lToDecodeOnly ) -> pSound
  */
 HB_FUNC( MA_SOUND_INIT ) {
 
@@ -210,6 +222,8 @@ HB_FUNC( MA_SOUND_INIT ) {
 
 }
 
+/* ma_sound_uninit( pSound ) -> Nil
+ */
 HB_FUNC( MA_SOUND_UNINIT ) {
 
    ma_sound * pSound = (ma_sound*) hb_parptr( 1 );
@@ -218,6 +232,8 @@ HB_FUNC( MA_SOUND_UNINIT ) {
    hb_xfree( pSound );
 }
 
+/* ma_sound_start( pSound ) -> nResult
+ */
 HB_FUNC( MA_SOUND_START ) {
 
    ma_sound * pSound = (ma_sound*) hb_parptr( 1 );
@@ -225,6 +241,8 @@ HB_FUNC( MA_SOUND_START ) {
    hb_retni( ma_sound_start( pSound ) );
 }
 
+/* ma_sound_is_playing( pSound ) -> lPlaying
+ */
 HB_FUNC( MA_SOUND_IS_PLAYING ) {
 
    ma_sound * pSound = (ma_sound*) hb_parptr( 1 );
@@ -232,13 +250,26 @@ HB_FUNC( MA_SOUND_IS_PLAYING ) {
    hb_retl( ma_sound_is_playing( pSound ) );
 }
 
+/* ma_sound_stop( pSound ) -> nResult
+ */
 HB_FUNC( MA_SOUND_STOP ) {
 
    ma_sound * pSound = (ma_sound*) hb_parptr( 1 );
 
-   ma_sound_stop( pSound );
+   hb_retni( ma_sound_stop( pSound ) );
 }
 
+/* ma_sound_get_data_source( pSound ) -> pDataSource
+ */
+HB_FUNC( MA_SOUND_GET_DATA_SOURCE ) {
+
+   ma_sound * pSound = (ma_sound*) hb_parptr( 1 );
+
+   hb_retptr( ma_sound_get_data_source( pSound ) );
+}
+
+/* ma_sound_get_channels( pSound ) -> nChannels
+ */
 HB_FUNC( MA_SOUND_GET_CHANNELS ) {
 
    ma_sound * pSound = (ma_sound*) hb_parptr( 1 );
@@ -249,6 +280,8 @@ HB_FUNC( MA_SOUND_GET_CHANNELS ) {
    hb_retni( channels );
 }
 
+/* ma_sound_set_volume( pSound, nVolume ) -> Nil
+ */
 HB_FUNC( MA_SOUND_SET_VOLUME ) {
 
    ma_sound * pSound = (ma_sound*) hb_parptr( 1 );
@@ -256,6 +289,8 @@ HB_FUNC( MA_SOUND_SET_VOLUME ) {
    ma_sound_set_volume( pSound, hb_parnd( 2 ) );
 }
 
+/* ma_sound_get_volume( pSound ) -> nVolume
+ */
 HB_FUNC( MA_SOUND_GET_VOLUME ) {
 
    ma_sound * pSound = (ma_sound*) hb_parptr( 1 );
@@ -263,6 +298,8 @@ HB_FUNC( MA_SOUND_GET_VOLUME ) {
    hb_retnd( ma_sound_get_volume( pSound ) );
 }
 
+/* ma_sound_get_length_in_pcm_frames( pSound ) -> nFramesAll
+ */
 HB_FUNC( MA_SOUND_GET_LENGTH_IN_PCM_FRAMES ) {
 
    ma_sound * pSound = (ma_sound*) hb_parptr( 1 );
@@ -272,6 +309,8 @@ HB_FUNC( MA_SOUND_GET_LENGTH_IN_PCM_FRAMES ) {
    hb_retnl( (long) lengthInFrames );
 }
 
+/* ma_sound_get_cursor_in_pcm_frames( pSound ) -> nFrameCurrent
+ */
 HB_FUNC( MA_SOUND_GET_CURSOR_IN_PCM_FRAMES ) {
 
    ma_sound * pSound = (ma_sound*) hb_parptr( 1 );
@@ -281,6 +320,8 @@ HB_FUNC( MA_SOUND_GET_CURSOR_IN_PCM_FRAMES ) {
    hb_retnl( (long) cursor );
 }
 
+/* ma_sound_seek_to_pcm_frame( pSound, nFrame ) -> Nil
+ */
 HB_FUNC( MA_SOUND_SEEK_TO_PCM_FRAME ) {
 
    ma_sound * pSound = (ma_sound*) hb_parptr( 1 );
@@ -346,7 +387,7 @@ HB_FUNC( MA_SOUND_READ_PCM_FRAMES ) {
 }
 
 /*
- * ma_GetRange( pSound, @ymax, @ymin )
+ * ma_GetRange( pSound, @ymax, @ymin ) -> nResult
  */
 HB_FUNC( MA_GETRANGE ) {
 
@@ -485,6 +526,8 @@ HB_FUNC( MA_GETRANGE ) {
 
 }
 
+/* ma_get_bytes_per_frame( nFormat, nChannels ) -> nBytes
+ */
 HB_FUNC( MA_GET_BYTES_PER_FRAME ) {
 
    hb_retni( ma_get_bytes_per_frame( hb_parni( 1 ), hb_parni( 2 ) ) );
@@ -523,6 +566,16 @@ HB_FUNC( MA_SET_PCM_FRAME ) {
       float_to_sample( (void*) (pSample + bytesPerFrame/channels), format, hb_parnd( 6 ) );
 }
 
+/* ma_data_source_set_loop_point_in_pcm_frames( pDataSource, loopBegInFrames, loopEndInFrames ) -> nResult
+ */
+HB_FUNC( MA_DATA_SOURCE_SET_LOOP_POINT_IN_PCM_FRAMES ) {
+
+   ma_data_source* pDataSource = (ma_data_source*) hb_parptr( 1 );
+
+   hb_retni( ma_data_source_set_loop_point_in_pcm_frames( pDataSource,
+      hb_parnl( 2 ), hb_parnl( 3 ) ) );
+}
+
 /* ma_encoder_init( cFile, nFormat, nChannels, nSampleRate ) -> pEncoder
  */
 HB_FUNC( MA_ENCODER_INIT ) {
@@ -543,6 +596,8 @@ HB_FUNC( MA_ENCODER_INIT ) {
    hb_retptr( pEncoder );
 }
 
+/* ma_encoder_uninit( pEncoder ) -> Nil
+ */
 HB_FUNC( MA_ENCODER_UNINIT ) {
 
    ma_encoder * pEncoder = (ma_encoder*) hb_parptr( 1 );
@@ -566,6 +621,8 @@ HB_FUNC( MA_ENCODER_WRITE_PCM_FRAMES ) {
 
 }
 
+/* ma_device_get_decoder( pDevice ) -> pDecoder
+ */
 HB_FUNC( MA_DEVICE_GET_DECODER ) {
 
    ma_device * pDevice = (ma_device*) hb_parptr( 1 );
@@ -574,6 +631,8 @@ HB_FUNC( MA_DEVICE_GET_DECODER ) {
    hb_retptr( pUData->pCoder );
 }
 
+/* ma_decoder_init( cFile ) -> pDecoder
+ */
 HB_FUNC( MA_DECODER_INIT ) {
 
    ma_decoder * pDecoder = (ma_decoder *) hb_xgrab( sizeof(ma_decoder) );
@@ -589,6 +648,8 @@ HB_FUNC( MA_DECODER_INIT ) {
 
 }
 
+/* ma_decoder_uninit( pDecoder ) -> Nil
+ */
 HB_FUNC( MA_DECODER_UNINIT ) {
 
    ma_decoder * pDecoder = (ma_decoder*) hb_parptr( 1 );
@@ -596,6 +657,8 @@ HB_FUNC( MA_DECODER_UNINIT ) {
    hb_xfree( pDecoder );
 }
 
+/* ma_decoder_get_info( pDecoder ) -> { nFormat, nChannels, nSampleRate }
+ */
 HB_FUNC( MA_DECODER_GET_INFO ) {
 
    ma_decoder * pDecoder = (ma_decoder*) hb_parptr( 1 );
@@ -613,6 +676,8 @@ HB_FUNC( MA_DECODER_GET_INFO ) {
 
 }
 
+/* ma_decoder_get_sample_rate( pDecoder ) -> nSampleRate
+ */
 HB_FUNC( MA_DECODER_GET_SAMPLE_RATE ) {
 
    ma_decoder * pDecoder = (ma_decoder*) hb_parptr( 1 );
@@ -622,6 +687,8 @@ HB_FUNC( MA_DECODER_GET_SAMPLE_RATE ) {
    hb_retnl( sampleRate );
 }
 
+/* ma_decoder_get_channels( pDecoder ) -> nChannels
+ */
 HB_FUNC( MA_DECODER_GET_CHANNELS ) {
 
    ma_decoder * pDecoder = (ma_decoder*) hb_parptr( 1 );
@@ -631,6 +698,8 @@ HB_FUNC( MA_DECODER_GET_CHANNELS ) {
    hb_retnl( channels );
 }
 
+/* ma_decoder_get_length_in_pcm_frames( pDecoder ) -> nFramesAll
+ */
 HB_FUNC( MA_DECODER_GET_LENGTH_IN_PCM_FRAMES ) {
 
    ma_decoder * pDecoder = (ma_decoder*) hb_parptr( 1 );
@@ -640,6 +709,8 @@ HB_FUNC( MA_DECODER_GET_LENGTH_IN_PCM_FRAMES ) {
    hb_retnl( length );
 }
 
+/* ma_decoder_get_cursor_in_pcm_frames( pDecoder ) -> nFrameCurrent
+ */
 HB_FUNC( MA_DECODER_GET_CURSOR_IN_PCM_FRAMES ) {
 
    ma_decoder * pDecoder = (ma_decoder*) hb_parptr( 1 );
@@ -789,7 +860,7 @@ HB_FUNC( MA_DEVICE_GET_VOLUME ) {
    hb_retnd( volume );
 }
 
-/* ma_device_set_volume( pDevice, nVolume )
+/* ma_device_set_volume( pDevice, nVolume ) -> Nil
  */
 HB_FUNC( MA_DEVICE_SET_VOLUME ) {
 
@@ -877,7 +948,7 @@ HB_FUNC( MA_DEVICE_CAPTURE_INIT ) {
    hb_retptr( (void*) pDevice );
 }
 
-/* ma_device_capture_uninit( pDevice )
+/* ma_device_capture_uninit( pDevice ) -> Nil
  */
 HB_FUNC( MA_DEVICE_CAPTURE_UNINIT ) {
 
@@ -912,7 +983,7 @@ HB_FUNC( MA_RESAMPLER_INIT ) {
    hb_retptr( pResampler );
 }
 
-/* ma_resampler_uninit( pResampler )
+/* ma_resampler_uninit( pResampler ) -> Nil
  */
 HB_FUNC( MA_RESAMPLER_UNINIT ) {
 
@@ -940,7 +1011,7 @@ HB_FUNC( MA_RESAMPLER_PROCESS_PCM_FRAMES ) {
       hb_retnl( frames_written );
 }
 
-/* ma_sleep( nMilliseconds )
+/* ma_sleep( nMilliseconds ) -> Nil
  */
 HB_FUNC( MA_SLEEP ) {
 
