@@ -210,7 +210,8 @@ HB_FUNC( MA_SOUND_INIT ) {
 
    soundConfig = ma_sound_config_init();
    soundConfig.pFilePath = hb_parc(2);
-   soundConfig.flags = (HB_ISLOG(3) && hb_parl(3))? MA_SOUND_FLAG_DECODE : MA_SOUND_FLAG_STREAM;
+   soundConfig.flags = ( (HB_ISLOG(3) && hb_parl(3))? MA_SOUND_FLAG_DECODE : MA_SOUND_FLAG_STREAM ) +
+      MA_SOUND_FLAG_NO_SPATIALIZATION;
 
    result = ma_sound_init_ex( pEngine, &soundConfig, pSound );
    if(result != MA_SUCCESS) {
