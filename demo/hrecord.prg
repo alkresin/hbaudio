@@ -34,11 +34,13 @@ CLASS HRecorder
 
    DATA pDevice
    DATA oBoard, oBtnAdd, oBtnRec, oBtnPause, oSayState
-   DATA cFile        INIT "out.wav"
+   DATA cFile        INIT "out"
    DATA aColors
    DATA oBrushBtn1, oBrushBtn2
    DATA oStyleNormal, oStylePressed, oStyleOver
    DATA cLastPath
+   DATA lFFMpeg      INIT .F.
+   DATA lToMp3       INIT .F.
    DATA lRecording   INIT .F.
    DATA lPause       INIT .F.
    DATA nSecondsRest INIT 0
@@ -100,6 +102,8 @@ METHOD New( oPane, aColors ) CLASS HRecorder
    ::oStylePressed := HStyle():New( {::aColors[CLR_STYLE]}, 1,, 2, ::aColors[CLR_BTN1] )
    ::oStyleOver := HStyle():New( {::aColors[CLR_STYLE]}, 1 )
 
+   ::lFFMpeg := _CheckFFMpeg()
+
    @ 0, 0 BOARD ::oBoard SIZE oPane:nWidth, oPane:nHeight OF oPane BACKCOLOR ::aColors[CLR_BOARD] ;
       ON SIZE ANCHOR_LEFTABS+ANCHOR_RIGHTABS
 
@@ -128,24 +132,27 @@ METHOD New( oPane, aColors ) CLASS HRecorder
 METHOD RecFile() CLASS HRecorder
 
    LOCAL oDlg, oPaneHea, oEdit, oCombo, oUpd1, oUpd2, oFont := HWindow():Getmain():oFont
-   LOCAL cFile := "out.wav"
+   LOCAL lToMp3 := ::lToMp3
    LOCAL bFile := {||
-      cFile := HFileSelect():Save( { {"Wav files","*.wav"} }, ::cLastPath, ::aColors )
+      LOCAL cFile := HFileSelect():Save( { {"Wav files","*.wav"} }, ::cLastPath, ::aColors )
       IF !Empty( cFile )
-         oEdit:SetText( hb_fnameNameExt( cFile ) )
+         oEdit:SetText( hb_fnameName( cFile ) )
          ::cLastPath := hb_fnameDir( cFile )
+         ::cFile := cFile
       ENDIF
       RETURN .T.
    }
    LOCAL bOk := {||
-      IF !Empty( cFile := oEdit:GetText() )
+      IF !Empty( ::cFile := oEdit:GetText() )
          ::KillDevice()
-         IF Empty( ::pDevice := ma_device_capture_init( ::cLastPath + cFile, Val(aRates[oCombo:Value]), oUpd1:Value ) )
+         IF Empty( ::pDevice := ma_device_capture_init( ::cLastPath + hb_fnameExtSet( ::cFile, "wav" ), ;
+            Val(aRates[oCombo:Value]), oUpd1:Value ) )
             ::Message( "Capture init failed", "Error" )
             hwg_EndDialog()
             RETURN .F.
          ENDIF
-         ::oSayState:SetText( hb_fnameNameExt( cFile ) )
+         ::lToMp3 := lToMp3
+         ::oSayState:SetText( ::cFile )
          ::nSecondsDef := oUpd2:Value
          ::oBtnRec:lHide := .F.
          ::oBtnRec:Refresh()
@@ -159,7 +166,7 @@ METHOD RecFile() CLASS HRecorder
    ENDIF
 
    INIT DIALOG oDlg TITLE "" BACKCOLOR ::aColors[CLR_DLG] FONT oFont ;
-      AT 300, 58 SIZE 280, 260 STYLE WND_NOTITLE
+      AT 300, 58 SIZE 280, 300 STYLE WND_NOTITLE
 
    ADD HEADER PANEL oPaneHea HEIGHT HEA_HEIGHT TEXTCOLOR ::aColors[CLR_BTN2] BACKCOLOR ::aColors[CLR_HEAD] ;
       FONT oFont TEXT "Add record" COORS 20 BTN_CLOSE
@@ -171,13 +178,17 @@ METHOD RecFile() CLASS HRecorder
          ON CLICK bFile
 
    @ 20, 80 SAY "SampleRate" SIZE 110, 26 COLOR ::aColors[CLR_BTN2] TRANSPARENT
-   @ 130, 80 COMBOBOX oCombo ITEMS aRates SIZE 130, 26 INIT 5 DISPLAYCOUNT 5
+   @ 130, 80 COMBOBOX oCombo ITEMS aRates SIZE 130, 26 INIT 2 DISPLAYCOUNT 5
 
    @ 20, 120 SAY "Channels" SIZE 110, 26 COLOR ::aColors[CLR_BTN2] TRANSPARENT
-   @ 130, 120 UPDOWN oUpd1 INIT 5 RANGE 1,2 SIZE 50,28 STYLE WS_BORDER
+   @ 130, 120 UPDOWN oUpd1 INIT 1 RANGE 1,2 SIZE 50,28 STYLE WS_BORDER
 
    @ 20, 160 SAY "Start pause" SIZE 110, 26 COLOR ::aColors[CLR_BTN2] TRANSPARENT
    @ 130, 160 UPDOWN oUpd2 INIT ::nSecondsDef RANGE 0,9 SIZE 50,28 STYLE WS_BORDER
+
+   IF ::lFFMpeg
+      @ 28, 200 CHECKBOX "Convert to mp3" SIZE 160, 26  INIT lToMp3 COLOR ::aColors[CLR_BTN2] TRANSPARENT
+   ENDIF
 
    @ 80,oDlg:nHeight-40 OWNERBUTTON SIZE 100,30 TEXT "Ok" COLOR ::aColors[CLR_BTN1] ;
          HSTYLES ::oStyleNormal, ::oStylePressed, ::oStyleOver ;
@@ -232,6 +243,8 @@ METHOD Record() CLASS HRecorder
 
 METHOD Stop() CLASS HRecorder
 
+   LOCAL cFile := ::cLastPath + ::cFile, cBuff
+
    IF Empty( ::pDevice )
       RETURN .F.
    ENDIF
@@ -249,6 +262,14 @@ METHOD Stop() CLASS HRecorder
 
    ::KillDevice()
    ::lRecording := ::lPause := .F.
+
+   IF ::lFFMpeg
+      hwg_RunConsoleApp( "ffmpeg - i " + hb_fnameExtSet( cFile, "wav" ) + " -f mp3 " + ;
+         hb_fnameExtSet( cFile, "mp3" ),, @cBuff )
+      IF File( hb_fnameExtSet( cFile, "mp3" ) )
+         FErase( hb_fnameExtSet( cFile, "wav" ) )
+      ENDIF
+   ENDIF
 
    RETURN .T.
 
@@ -336,3 +357,13 @@ METHOD End() CLASS HRecorder
    ::KillDevice()
 
    RETURN .T.
+
+FUNCTION _CheckFFMpeg()
+
+   LOCAL cBuff
+
+   hwg_RunConsoleApp( "ffmpeg -version",, @cBuff )
+   IF !Empty( cBuff ) .AND. "ersion" $ cBuff
+      RETURN .T.
+   ENDIF
+   RETURN .F.

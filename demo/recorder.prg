@@ -30,6 +30,7 @@ FUNCTION Main()
 
    LOCAL oMain, oPaneHea, oPaneTop
 
+   ReadIni()
    IF Empty( oFontMain )
       PREPARE FONT oFontMain NAME "Georgia" WIDTH 0 HEIGHT - 15 ITALIC
    ENDIF
@@ -52,5 +53,31 @@ FUNCTION Main()
    ACTIVATE WINDOW oMain
 
    HRecorder():KillDevice()
+
+   RETURN Nil
+
+STATIC FUNCTION ReadIni()
+
+   LOCAL hIni := _IniRead( hb_Dirbase() + "recorder.ini" ), aIni, nSect, aSect, cTemp
+
+   IF !Empty( hIni )
+      aIni := hb_hKeys( hIni )
+      FOR nSect := 1 TO Len( aIni )
+         IF Upper(aIni[nSect]) == "MAIN"
+            IF !Empty( aSect := hIni[ aIni[nSect] ] )
+               hb_hCaseMatch( aSect, .F. )
+               IF hb_hHaskey( aSect, cTemp := "fontmain" ) .AND. !Empty( cTemp := aSect[ cTemp ] )
+                  oFontMain := HFont():LoadFromStr( cTemp )
+               ENDIF
+               IF hb_hHaskey( aSect, cTemp := "theme" ) .AND. !Empty( cTemp := aSect[ cTemp ] )
+                  nTheme := Val( cTemp )
+                  IF nTheme <= 0 .OR. nTheme > Len( arrColors )
+                     nTheme := 1
+                  ENDIF
+               ENDIF
+            ENDIF
+         ENDIF
+      NEXT
+   ENDIF
 
    RETURN Nil
