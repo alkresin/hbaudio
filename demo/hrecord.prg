@@ -243,7 +243,7 @@ METHOD Record() CLASS HRecorder
 
 METHOD Stop() CLASS HRecorder
 
-   LOCAL cFile := ::cLastPath + ::cFile, cBuff
+   LOCAL cFile := ::cLastPath + ::cFile, cBuff, cCmd
 
    IF Empty( ::pDevice )
       RETURN .F.
@@ -264,8 +264,11 @@ METHOD Stop() CLASS HRecorder
    ::lRecording := ::lPause := .F.
 
    IF ::lFFMpeg
-      hwg_RunConsoleApp( "ffmpeg - i " + hb_fnameExtSet( cFile, "wav" ) + " -f mp3 " + ;
-         hb_fnameExtSet( cFile, "mp3" ),, @cBuff )
+      cCmd := "ffmpeg -i " + hb_fnameExtSet( cFile, "wav" ) + " -f mp3 " + ;
+         hb_fnameExtSet( cFile, "mp3" )
+      //hwg_writelog( cCmd )
+      hwg_RunConsoleApp( cCmd,, @cBuff )
+      //hwg_writelog( cBuff )
       IF File( hb_fnameExtSet( cFile, "mp3" ) )
          FErase( hb_fnameExtSet( cFile, "wav" ) )
       ENDIF
