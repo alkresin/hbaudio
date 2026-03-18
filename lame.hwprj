@@ -33,7 +33,5 @@ presets.c
 srcpath=lame/vector
 xmm_quantize_sub.c
 
-def_cflags=-Ilame -Wall -O3 -c
-
 srcpath=source
 hblame.c

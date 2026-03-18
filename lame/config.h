@@ -68,6 +68,7 @@
 	typedef double float64_t;
 #elif defined (__GNUC__)
 #define __int8_t_defined
+/*
 #define uint8_t unsigned char
 #define uint16_t unsigned short
 #define uint32_t unsigned int
@@ -77,6 +78,8 @@
 #define int16_t signed short
 #define int32_t signed int
 #define int64_t signed long long
+*/
+#include <stdint.h>
 #endif
 
 typedef long double ieee854_float80_t;
