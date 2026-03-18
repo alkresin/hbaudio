@@ -33,17 +33,19 @@ typedef struct {
 #define INBUFFER_SIZE 4096
 #define MP3BUFFER_SIZE 4096
 
-/* lame_wav2mp3( cFileIn, cFileOut )
+/* lame_wav2mp3( cFileIn, cFileOut[, nBitRate] )
  */
 HB_FUNC( LAME_WAV2MP3 ) {
 
-   FILE *input_file = fopen( hb_parc(1), "rb");
+   FILE *input_file, *output_file;
+   int iBitRate = HB_ISNUM(3)? hb_parni(3) : 32;
+
+   input_file = fopen( hb_parc(1), "rb");
    if( !input_file ) {
       hb_retni( 1 );
       return;
    }
-
-   FILE *output_file = fopen( hb_parc(2), "wb");
+   output_file = fopen( hb_parc(2), "wb");
    if( !output_file ) {
       fclose(input_file);
       hb_retni( 2 );
@@ -82,7 +84,7 @@ HB_FUNC( LAME_WAV2MP3 ) {
    // Установка параметров из WAV заголовка
    lame_set_num_channels( lame, header.numChannels );
    lame_set_in_samplerate( lame, header.sampleRate );
-   lame_set_brate( lame, 32 ); // ваш битрейт
+   lame_set_brate( lame, iBitRate );
    lame_set_mode( lame, header.numChannels == 1 ? MONO : STEREO );
    lame_set_quality( lame, 5 );
 
