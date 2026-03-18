@@ -27,8 +27,8 @@
 
 #define HEA_HEIGHT         28
 
-STATIC aRates := { "8000", "16000", "24000", "32000", "44100", "48000", ;
-   "88200", "96000", "176400", "192000", "352800", "384000" }
+STATIC aRates := { "8000", "16000", "24000", "32000", "44100", "48000" }
+STATIC aFileFormat := { "wav", "mp3" }
 
 CLASS HRecorder
 
@@ -39,7 +39,7 @@ CLASS HRecorder
    DATA oBrushBtn1, oBrushBtn2
    DATA oStyleNormal, oStylePressed, oStyleOver
    DATA cLastPath
-   DATA lFFMpeg      INIT .F.
+   //DATA lFFMpeg      INIT .F.
    DATA lToMp3       INIT .F.
    DATA lRecording   INIT .F.
    DATA lPause       INIT .F.
@@ -102,7 +102,7 @@ METHOD New( oPane, aColors ) CLASS HRecorder
    ::oStylePressed := HStyle():New( {::aColors[CLR_STYLE]}, 1,, 2, ::aColors[CLR_BTN1] )
    ::oStyleOver := HStyle():New( {::aColors[CLR_STYLE]}, 1 )
 
-   ::lFFMpeg := _CheckFFMpeg()
+   // ::lFFMpeg := _CheckFFMpeg()
 
    @ 0, 0 BOARD ::oBoard SIZE oPane:nWidth, oPane:nHeight OF oPane BACKCOLOR ::aColors[CLR_BOARD] ;
       ON SIZE ANCHOR_LEFTABS+ANCHOR_RIGHTABS
@@ -131,7 +131,7 @@ METHOD New( oPane, aColors ) CLASS HRecorder
 
 METHOD RecFile() CLASS HRecorder
 
-   LOCAL oDlg, oPaneHea, oEdit, oCombo, oUpd1, oUpd2, oFont := HWindow():Getmain():oFont
+   LOCAL oDlg, oPaneHea, oEdit, oCombo, oUpd1, oUpd2, oCombo2, oFont := HWindow():Getmain():oFont
    LOCAL lToMp3 := ::lToMp3
    LOCAL bFile := {||
       LOCAL cFile := HFileSelect():Save( { {"Wav files","*.wav"} }, ::cLastPath, ::aColors )
@@ -151,7 +151,7 @@ METHOD RecFile() CLASS HRecorder
             hwg_EndDialog()
             RETURN .F.
          ENDIF
-         ::lToMp3 := lToMp3
+         ::lToMp3 := ( oCombo2:Value == 2 )
          ::oSayState:SetText( ::cFile )
          ::nSecondsDef := oUpd2:Value
          ::oBtnRec:lHide := .F.
@@ -186,9 +186,8 @@ METHOD RecFile() CLASS HRecorder
    @ 20, 160 SAY "Start pause" SIZE 110, 26 COLOR ::aColors[CLR_BTN2] TRANSPARENT
    @ 130, 160 UPDOWN oUpd2 INIT ::nSecondsDef RANGE 0,9 SIZE 50,28 STYLE WS_BORDER
 
-   IF ::lFFMpeg
-      @ 28, 200 CHECKBOX "Convert to mp3" SIZE 160, 26  INIT lToMp3 COLOR ::aColors[CLR_BTN2] TRANSPARENT
-   ENDIF
+   @ 20, 200 SAY "File format" SIZE 110, 26 COLOR ::aColors[CLR_BTN2] TRANSPARENT
+   @ 130, 200 COMBOBOX oCombo2 ITEMS aFileFormat SIZE 90, 26 INIT 1 DISPLAYCOUNT 3
 
    @ 80,oDlg:nHeight-40 OWNERBUTTON SIZE 100,30 TEXT "Ok" COLOR ::aColors[CLR_BTN1] ;
          HSTYLES ::oStyleNormal, ::oStylePressed, ::oStyleOver ;
@@ -243,7 +242,7 @@ METHOD Record() CLASS HRecorder
 
 METHOD Stop() CLASS HRecorder
 
-   LOCAL cFile := ::cLastPath + ::cFile, cBuff, cCmd
+   LOCAL cFile := ::cLastPath + ::cFile, cBuff, cCmd, nRes
 
    IF Empty( ::pDevice )
       RETURN .F.
@@ -263,7 +262,13 @@ METHOD Stop() CLASS HRecorder
    ::KillDevice()
    ::lRecording := ::lPause := .F.
 
-   IF ::lFFMpeg
+   IF ::lToMp3
+      IF ( nRes := lame_Wav2Mp3( hb_fnameExtSet( cFile, "wav" ), hb_fnameExtSet( cFile, "mp3" ) ) ) == 0
+         FErase( hb_fnameExtSet( cFile, "wav" ) )
+      ELSE
+         hwg_writelog( "res: " + str(nRes) )
+      ENDIF
+      /*
       cCmd := "ffmpeg -i " + hb_fnameExtSet( cFile, "wav" ) + " -f mp3 " + ;
          hb_fnameExtSet( cFile, "mp3" )
       //hwg_writelog( cCmd )
@@ -272,6 +277,7 @@ METHOD Stop() CLASS HRecorder
       IF File( hb_fnameExtSet( cFile, "mp3" ) )
          FErase( hb_fnameExtSet( cFile, "wav" ) )
       ENDIF
+      */
    ENDIF
 
    RETURN .T.
@@ -361,6 +367,7 @@ METHOD End() CLASS HRecorder
 
    RETURN .T.
 
+/*
 FUNCTION _CheckFFMpeg()
 
    LOCAL cBuff
@@ -370,3 +377,4 @@ FUNCTION _CheckFFMpeg()
       RETURN .T.
    ENDIF
    RETURN .F.
+*/

@@ -3,7 +3,7 @@
 {unix}libs=pthread m
 
 libspath=../lib
-libs=hbaudio
+libs=hbaudio lame
 
 recorder.prg
 hrecord.prg
