@@ -7,4 +7,4 @@ guilib=
 {unix}def_lflags=-O3 -s
 
 libspath=../lib
-libs=hbaudio
+libs=hbaudio lame

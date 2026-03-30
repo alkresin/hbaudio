@@ -18,7 +18,6 @@
 typedef struct
 {
    void          *pCoder;
-   //PHB_DYNS pSym_onEvent;
    short int    bPlaying;
 } udata;
 
