@@ -26,7 +26,7 @@ STATIC hlock := -1, lLock := .F., cFlockName, oTimer
 STATIC oPlayer
 STATIC arrColors := { {CLR_BGRAY1,CLR_BGRAY2,CLR_DBROWN,CLR_GBROWN,CLR_BLACK,CLR_WHITE}, ;
    {0x797979,0x555555,0x222222,0x353535,CLR_BLACK,CLR_WHITE} }
-STATIC nTheme := 1, cLastPath, oFontMain, nVolume := 0.5, lTime := .T., lGraph := .F.
+STATIC nTheme := 1, cLastPath, oFontMain, nVolume := 0.5, lTime := .T., lGraph := .F., lSaveHis := .F.
 
 FUNCTION Main( cFile )
 
@@ -65,6 +65,8 @@ FUNCTION Main( cFile )
    IF !Empty( HPlayer():pEngine )
       ma_Engine_UnInit( HPlayer():pEngine )
       HPlayer():pEngine := Nil
+   ENDIF
+   IF lSaveHis
    ENDIF
 
    RETURN Nil
@@ -148,6 +150,9 @@ STATIC FUNCTION ReadIni()
                ENDIF
                IF hb_hHaskey( aSect, cTemp := "showgraph" ) .AND. !Empty( cTemp := aSect[ cTemp ] )
                   lGraph := ( Lower(cTemp) == "on" )
+               ENDIF
+               IF hb_hHaskey( aSect, cTemp := "savehis" ) .AND. !Empty( cTemp := aSect[ cTemp ] )
+                  lSaveHis := ( Lower(cTemp) == "on" )
                ENDIF
             ENDIF
          ENDIF
