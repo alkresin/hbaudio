@@ -72,6 +72,7 @@ METHOD Show() CLASS HFileSelect
    LOCAL bEnter1 := {||
       LOCAL xPath := "", i
       xPath := oBrw1:aArray[oBrw1:nCurrent,2]
+      oBrw2:Top()
       IF Valtype( xPath ) == "A"
          oBrw2:aArray := SetBrw3( Self, xPath )
       ELSE
@@ -81,8 +82,11 @@ METHOD Show() CLASS HFileSelect
          ENDIF
          oBrw2:aArray := SetBrw2( Self, oCombo:Value )
       ENDIF
-      oBrw2:Top()
+      //hwg_writelog( "1 "+oBrw2:aArray[1,1] + " " + valtype( oBrw2:rowCount ) )
+      //oBrw2:Top()
+      //hwg_writelog( "2 "+oBrw2:aArray[1,1] )
       oBrw2:Refresh()
+      //hwg_writelog( "3 "+oBrw2:aArray[1,1] )
 
       RETURN .T.
    }
@@ -227,7 +231,13 @@ METHOD Save( aFilters, cCurrPath, aColors ) CLASS HFileSelect
 
 METHOD AddRecent( cFile ) CLASS HFileSelect
 
+   LOCAL i
+
+   IF ( i := hb_Ascan( ::aRecent, cFile,,, .T. ) ) > 0
+      hb_ADel( ::aRecent, i, .T. )
+   ENDIF
    hb_AIns( ::aRecent, 1, cFile, .T. )
+
    RETURN Nil
 
 STATIC FUNCTION SetBrw1( o, cPath )

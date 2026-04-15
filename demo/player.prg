@@ -22,16 +22,23 @@
 #define PL_WIDTH          600
 #define PL_HEIGHT          32
 
+REQUEST HB_CODEPAGE_RU1251, HB_CODEPAGE_RU866, HB_CODEPAGE_UTF8
+
 STATIC hlock := -1, lLock := .F., cFlockName, oTimer
 STATIC oPlayer
 STATIC arrColors := { {CLR_BGRAY1,CLR_BGRAY2,CLR_DBROWN,CLR_GBROWN,CLR_BLACK,CLR_WHITE}, ;
    {0x797979,0x555555,0x222222,0x353535,CLR_BLACK,CLR_WHITE} }
-STATIC nTheme := 1, cLastPath, oFontMain, nVolume := 0.5, lTime := .T., lGraph := .F., lSaveHis := .F.
+STATIC nTheme := 1, cLastPath, oFontMain, nVolume := 0.5, lTime := .T., lGraph := .F., cFileHis, nMaxHis := 40
 
 FUNCTION Main( cFile )
 
    LOCAL oMain, oPaneHea, oPaneTop
 
+   hb_cdpSelect( "RU1251" )
+
+   /* IF !Empty( cFile )
+      cFile := cpConvert( cFile )
+   ENDIF */
    IF !onStart( cFile )
       RETURN Nil
    ENDIF
@@ -39,7 +46,7 @@ FUNCTION Main( cFile )
    ReadIni()
 
    IF Empty( oFontMain )
-      PREPARE FONT oFontMain NAME "Georgia" WIDTH 0 HEIGHT - 15 ITALIC
+      PREPARE FONT oFontMain NAME "Georgia" WIDTH 0 HEIGHT - 15 ITALIC CHARSET 4
    ENDIF
 
    INIT WINDOW oMain MAIN TITLE "" AT 200, 0 SIZE PL_WIDTH, HEA_HEIGHT+PL_HEIGHT ;
@@ -66,8 +73,8 @@ FUNCTION Main( cFile )
       ma_Engine_UnInit( HPlayer():pEngine )
       HPlayer():pEngine := Nil
    ENDIF
-   IF lSaveHis
-   ENDIF
+
+   SaveHis()
 
    RETURN Nil
 
@@ -120,9 +127,37 @@ STATIC FUNCTION CheckLock()
 
    RETURN Nil
 
+STATIC FUNCTION cpConvert( cFile )
+
+   LOCAL i, n
+
+   //hwg_writelog( cFile )
+   FOR i := 1 TO Len( cFile )
+      IF ( n := hb_bPeek( cFile, i ) ) >= 128 .AND. n <= 191
+         //hwg_writelog( str(i) + ":" + str(n) )
+         RETURN hb_translate( cFile, "RU866", "RU1251" )
+      ENDIF
+   NEXT
+
+   RETURN cFile
+
+STATIC FUNCTION SaveHis()
+
+   LOCAL s := "[PLAYLIST]" + Chr(10), i, n
+
+   IF !Empty( cFileHis ) .AND. !Empty( HFileSelect():aRecent )
+      n := Min( Len( HFileSelect():aRecent ), nMaxHis )
+      FOR i := 1 TO n
+         s += HFileSelect():aRecent[i] + Chr(10)
+      NEXT
+      hb_MemoWrit( cFileHis, s )
+   ENDIF
+
+   RETURN Nil
+
 STATIC FUNCTION ReadIni()
 
-   LOCAL hIni := _IniRead( hb_Dirbase() + "player.ini" ), aIni, nSect, aSect, cTemp
+   LOCAL hIni := _IniRead( hb_Dirbase() + "player.ini" ), aIni, nSect, aSect, cTemp, aList, i
 
    IF !Empty( hIni )
       aIni := hb_hKeys( hIni )
@@ -151,12 +186,29 @@ STATIC FUNCTION ReadIni()
                IF hb_hHaskey( aSect, cTemp := "showgraph" ) .AND. !Empty( cTemp := aSect[ cTemp ] )
                   lGraph := ( Lower(cTemp) == "on" )
                ENDIF
-               IF hb_hHaskey( aSect, cTemp := "savehis" ) .AND. !Empty( cTemp := aSect[ cTemp ] )
-                  lSaveHis := ( Lower(cTemp) == "on" )
+               IF hb_hHaskey( aSect, cTemp := "history_file" ) .AND. !Empty( cTemp := aSect[ cTemp ] )
+                  cFileHis := hb_Dirbase() + cTemp
+               ENDIF
+               IF hb_hHaskey( aSect, cTemp := "history_items" ) .AND. !Empty( cTemp := aSect[ cTemp ] )
+                  nMaxHis := Val( cTemp )
                ENDIF
             ENDIF
          ENDIF
       NEXT
+      IF !Empty( cFileHis ) .AND. File( cFileHis ) .AND. !Empty( cTemp := Memoread( cFileHis ) )
+
+         aList := hb_aTokens( cTemp, Chr(10) )
+         FOR i := 1 TO Len( aList )
+            cTemp := Iif( Left( aList[i],1 ) == ' ', Ltrim( aList[i] ), aList[i] )
+            IF Left( cTemp, 1 ) $ "[;#"
+               LOOP
+            ENDIF
+            cTemp := Trim( Iif( Right(cTemp,1)==Chr(13), Left( cTemp,Len(cTemp)-1 ), cTemp ) )
+            IF !Empty( cTemp )
+               AAdd( HFileSelect():aRecent, cTemp )
+            ENDIF
+         NEXT
+      ENDIF
    ENDIF
 
    RETURN Nil
