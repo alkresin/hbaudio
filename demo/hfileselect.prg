@@ -141,8 +141,6 @@ METHOD Show() CLASS HFileSelect
    IF ::lToSave
       ::lRecent := .F.
       nPaneFHeight := 30
-   ELSEIF Empty(::aRecent) .AND. !Empty(::cFileHis)
-      ::aRecent := LoadHis( ::cFileHis )
    ENDIF
 
    IF Empty( ::cCurrPath )
@@ -343,23 +341,6 @@ STATIC FUNCTION SetBrw3( o, arr )
    NEXT
 
    RETURN aDir
-
-STATIC FUNCTION LoadHis( cFile )
-
-   LOCAL arr, cBuf := MemoRead( cFile ), i
-
-   IF Empty( cBuf )
-      RETURN {}
-   ENDIF
-   IF Chr(13) $ cBuf
-      cBuf := StrTran( cBuf, Chr(13), "" )
-   ENDIF
-   arr := hb_aTokens( cBuf, Chr(10) )
-   FOR i := Len( arr ) TO 1 STEP -1
-      hb_ADel( arr, i, .T. )
-   NEXT
-
-   RETURN arr
 
 STATIC FUNCTION FSize( n )
 

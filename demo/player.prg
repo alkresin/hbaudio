@@ -204,7 +204,7 @@ STATIC FUNCTION ReadIni()
                LOOP
             ENDIF
             cTemp := Trim( Iif( Right(cTemp,1)==Chr(13), Left( cTemp,Len(cTemp)-1 ), cTemp ) )
-            IF !Empty( cTemp )
+            IF !Empty( cTemp ) .AND. File( cTemp )
                AAdd( HFileSelect():aRecent, cTemp )
             ENDIF
          NEXT
